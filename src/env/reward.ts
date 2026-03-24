@@ -1,0 +1,14 @@
+import type { RewardEvent } from './types.js';
+
+export const REWARD: Record<RewardEvent, number> = {
+  CORRECT_ANSWER: 10,
+  WRONG_ANSWER: -5,
+  CALL_ENDED_NO_ANSWER: -3,
+  ANSWERING_MACHINE: -2,
+  WRONG_NUMBER: -2,
+  TURN_PENALTY: -1,
+};
+
+export function computeReward(events: RewardEvent[]): number {
+  return events.reduce((sum, e) => sum + REWARD[e], 0);
+}

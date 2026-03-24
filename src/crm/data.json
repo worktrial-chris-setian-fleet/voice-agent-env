@@ -1,0 +1,385 @@
+[
+  {
+    "id": "acc-001",
+    "company_name": "Acme Corp",
+    "contacts": [
+      { "name": "Sarah Mitchell", "phone": "415-555-0101", "email": "sarah.mitchell@acme.com", "role": "VP Sales" },
+      { "name": "Tom Bradley", "phone": "415-555-0102", "email": "tom.bradley@acme.com", "role": "CFO" }
+    ],
+    "deal_stage": "renewal",
+    "last_activity": "2026-03-10",
+    "contract_value": 120000,
+    "contract_renewal_date": "2026-06-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-002",
+    "company_name": "Globex Corporation",
+    "contacts": [
+      { "name": "Sarah Chen", "phone": "312-555-0201", "email": "sarah.chen@globex.com", "role": "CTO" },
+      { "name": "Marcus Webb", "phone": "312-555-0202", "email": "marcus.webb@globex.com", "role": "CEO" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-03-18",
+    "contract_value": 250000,
+    "contract_renewal_date": "2026-09-15",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-003",
+    "company_name": "Initech Solutions",
+    "contacts": [
+      { "name": "Sarah Johnson", "phone": "512-555-0301", "email": "sarah.j@initech.com", "role": "Procurement Manager" },
+      { "name": "Bill Lumbergh", "phone": "512-555-0302", "email": "b.lumbergh@initech.com", "role": "Director" }
+    ],
+    "deal_stage": "negotiation",
+    "last_activity": "2026-02-28",
+    "contract_value": 75000,
+    "contract_renewal_date": "2026-07-30",
+    "account_status": "at_risk"
+  },
+  {
+    "id": "acc-004",
+    "company_name": "Umbrella Technologies",
+    "contacts": [
+      { "name": "James Redfield", "phone": "213-555-0401", "email": "j.redfield@umbrella-tech.com", "role": "Account Manager" },
+      { "name": "Claire Bennett", "phone": "213-555-0402", "email": "c.bennett@umbrella-tech.com", "role": "VP Operations" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-03-20",
+    "contract_value": 340000,
+    "contract_renewal_date": "2027-01-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-005",
+    "company_name": "Massive Dynamic",
+    "contacts": [
+      { "name": "Nina Sharp", "phone": "617-555-0501", "email": "n.sharp@massivedynamic.com", "role": "CEO" },
+      { "name": "Peter Bishop", "phone": "617-555-0502", "email": "p.bishop@massivedynamic.com", "role": "Lead Scientist" }
+    ],
+    "deal_stage": "prospect",
+    "last_activity": "2026-01-15",
+    "contract_value": 0,
+    "contract_renewal_date": "",
+    "account_status": "new"
+  },
+  {
+    "id": "acc-006",
+    "company_name": "Veridian Dynamics",
+    "contacts": [
+      { "name": "Ted Crisp", "phone": "310-555-0601", "email": "t.crisp@veridian.com", "role": "VP New Business" },
+      { "name": "Veronica Palmer", "phone": "310-555-0602", "email": "v.palmer@veridian.com", "role": "COO" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-03-01",
+    "contract_value": 185000,
+    "contract_renewal_date": "2026-10-31",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-007",
+    "company_name": "Soylent Corp",
+    "contacts": [
+      { "name": "Sarah Waugh", "phone": "718-555-0701", "email": "s.waugh@soylent.com", "role": "Purchasing Director" }
+    ],
+    "deal_stage": "renewal",
+    "last_activity": "2026-03-05",
+    "contract_value": 92000,
+    "contract_renewal_date": "2026-05-15",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-008",
+    "company_name": "Bluth Company",
+    "contacts": [
+      { "name": "Michael Bluth", "phone": "949-555-0801", "email": "michael@bluth.com", "role": "President" },
+      { "name": "George Bluth", "phone": "949-555-0802", "email": "george@bluth.com", "role": "Founder" }
+    ],
+    "deal_stage": "closed_lost",
+    "last_activity": "2025-12-01",
+    "contract_value": 45000,
+    "contract_renewal_date": "",
+    "account_status": "churned"
+  },
+  {
+    "id": "acc-009",
+    "company_name": "Sterling Cooper",
+    "contacts": [
+      { "name": "Don Draper", "phone": "212-555-0901", "email": "d.draper@sterlingcooper.com", "role": "Creative Director" },
+      { "name": "Roger Sterling", "phone": "212-555-0902", "email": "r.sterling@sterlingcooper.com", "role": "Partner" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-02-14",
+    "contract_value": 210000,
+    "contract_renewal_date": "2026-08-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-010",
+    "company_name": "Dunder Mifflin",
+    "contacts": [
+      { "name": "Michael Scott", "phone": "570-555-1001", "email": "michael.scott@dundermifflin.com", "role": "Regional Manager" },
+      { "name": "Dwight Schrute", "phone": "570-555-1002", "email": "dwight.schrute@dundermifflin.com", "role": "Assistant Manager" }
+    ],
+    "deal_stage": "renewal",
+    "last_activity": "2026-03-12",
+    "contract_value": 58000,
+    "contract_renewal_date": "2026-06-30",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-011",
+    "company_name": "Pied Piper",
+    "contacts": [
+      { "name": "Richard Hendricks", "phone": "650-555-1101", "email": "richard@piedpiper.com", "role": "CEO" },
+      { "name": "Erlich Bachman", "phone": "650-555-1102", "email": "erlich@piedpiper.com", "role": "Advisor" }
+    ],
+    "deal_stage": "negotiation",
+    "last_activity": "2026-03-22",
+    "contract_value": 130000,
+    "contract_renewal_date": "2026-12-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-012",
+    "company_name": "Hooli",
+    "contacts": [
+      { "name": "Gavin Belson", "phone": "650-555-1201", "email": "g.belson@hooli.com", "role": "CEO" },
+      { "name": "Bighead Nelson", "phone": "650-555-1202", "email": "bighead@hooli.com", "role": "VP Architecture" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-03-15",
+    "contract_value": 500000,
+    "contract_renewal_date": "2027-03-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-013",
+    "company_name": "Waystar Royco",
+    "contacts": [
+      { "name": "Logan Roy", "phone": "212-555-1301", "email": "l.roy@waystar.com", "role": "Chairman" },
+      { "name": "Kendall Roy", "phone": "212-555-1302", "email": "k.roy@waystar.com", "role": "President" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-03-08",
+    "contract_value": 750000,
+    "contract_renewal_date": "2027-06-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-014",
+    "company_name": "Prestige Worldwide",
+    "contacts": [
+      { "name": "Brennan Holt", "phone": "305-555-1401", "email": "b.holt@prestigeww.com", "role": "CEO" }
+    ],
+    "deal_stage": "prospect",
+    "last_activity": "2026-01-30",
+    "contract_value": 0,
+    "contract_renewal_date": "",
+    "account_status": "new"
+  },
+  {
+    "id": "acc-015",
+    "company_name": "Tyrell Corporation",
+    "contacts": [
+      { "name": "Eldon Tyrell", "phone": "213-555-1501", "email": "e.tyrell@tyrellcorp.com", "role": "CEO" },
+      { "name": "Rachel Rosen", "phone": "213-555-1502", "email": "r.rosen@tyrellcorp.com", "role": "Head of R&D" }
+    ],
+    "deal_stage": "renewal",
+    "last_activity": "2026-02-20",
+    "contract_value": 420000,
+    "contract_renewal_date": "2026-08-15",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-016",
+    "company_name": "Oscorp Industries",
+    "contacts": [
+      { "name": "Norman Osborn", "phone": "212-555-1601", "email": "n.osborn@oscorp.com", "role": "CEO" },
+      { "name": "Harry Osborn", "phone": "212-555-1602", "email": "h.osborn@oscorp.com", "role": "VP Research" }
+    ],
+    "deal_stage": "at_risk",
+    "last_activity": "2025-11-15",
+    "contract_value": 160000,
+    "contract_renewal_date": "2026-04-30",
+    "account_status": "at_risk"
+  },
+  {
+    "id": "acc-017",
+    "company_name": "Stark Industries",
+    "contacts": [
+      { "name": "Tony Stark", "phone": "310-555-1701", "email": "tony@stark.com", "role": "CEO" },
+      { "name": "Pepper Potts", "phone": "310-555-1702", "email": "pepper@stark.com", "role": "COO" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-03-21",
+    "contract_value": 980000,
+    "contract_renewal_date": "2027-09-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-018",
+    "company_name": "Cyberdyne Systems",
+    "contacts": [
+      { "name": "Miles Dyson", "phone": "408-555-1801", "email": "m.dyson@cyberdyne.com", "role": "Director of Engineering" }
+    ],
+    "deal_stage": "negotiation",
+    "last_activity": "2026-03-17",
+    "contract_value": 275000,
+    "contract_renewal_date": "2026-11-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-019",
+    "company_name": "InGen Technologies",
+    "contacts": [
+      { "name": "John Hammond", "phone": "305-555-1901", "email": "j.hammond@ingen.com", "role": "Founder" },
+      { "name": "Dennis Nedry", "phone": "305-555-1902", "email": "d.nedry@ingen.com", "role": "Systems Engineer" }
+    ],
+    "deal_stage": "closed_lost",
+    "last_activity": "2025-10-01",
+    "contract_value": 60000,
+    "contract_renewal_date": "",
+    "account_status": "churned"
+  },
+  {
+    "id": "acc-020",
+    "company_name": "Nakatomi Trading",
+    "contacts": [
+      { "name": "Joseph Takagi", "phone": "213-555-2001", "email": "j.takagi@nakatomi.com", "role": "President" },
+      { "name": "Holly Gennaro", "phone": "213-555-2002", "email": "h.gennaro@nakatomi.com", "role": "Director of HR" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-02-28",
+    "contract_value": 195000,
+    "contract_renewal_date": "2026-09-30",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-021",
+    "company_name": "Wayne Enterprises",
+    "contacts": [
+      { "name": "Bruce Wayne", "phone": "212-555-2101", "email": "b.wayne@wayneenterprises.com", "role": "CEO" },
+      { "name": "Lucius Fox", "phone": "212-555-2102", "email": "l.fox@wayneenterprises.com", "role": "CFO" }
+    ],
+    "deal_stage": "renewal",
+    "last_activity": "2026-03-19",
+    "contract_value": 610000,
+    "contract_renewal_date": "2026-10-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-022",
+    "company_name": "Weyland-Yutani",
+    "contacts": [
+      { "name": "Carter Burke", "phone": "415-555-2201", "email": "c.burke@weyland-yutani.com", "role": "Corporate Liaison" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-01-10",
+    "contract_value": 320000,
+    "contract_renewal_date": "2026-11-15",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-023",
+    "company_name": "Virtucon",
+    "contacts": [
+      { "name": "Scott Evil", "phone": "702-555-2301", "email": "s.evil@virtucon.com", "role": "VP Strategy" },
+      { "name": "Number Two", "phone": "702-555-2302", "email": "numbertwo@virtucon.com", "role": "COO" }
+    ],
+    "deal_stage": "at_risk",
+    "last_activity": "2025-12-20",
+    "contract_value": 88000,
+    "contract_renewal_date": "2026-05-01",
+    "account_status": "at_risk"
+  },
+  {
+    "id": "acc-024",
+    "company_name": "Rekall Inc",
+    "contacts": [
+      { "name": "Bob McClane", "phone": "703-555-2401", "email": "b.mcclane@rekall.com", "role": "Director of Sales" }
+    ],
+    "deal_stage": "prospect",
+    "last_activity": "2026-02-05",
+    "contract_value": 0,
+    "contract_renewal_date": "",
+    "account_status": "new"
+  },
+  {
+    "id": "acc-025",
+    "company_name": "Omni Consumer Products",
+    "contacts": [
+      { "name": "Dick Jones", "phone": "313-555-2501", "email": "d.jones@omnicorp.com", "role": "SVP" },
+      { "name": "Donald Johnson", "phone": "313-555-2502", "email": "d.johnson@omnicorp.com", "role": "Procurement" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-03-03",
+    "contract_value": 430000,
+    "contract_renewal_date": "2027-02-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-026",
+    "company_name": "Monsters Inc",
+    "contacts": [
+      { "name": "James Sullivan", "phone": "415-555-2601", "email": "j.sullivan@monstersinc.com", "role": "CEO" },
+      { "name": "Mike Wazowski", "phone": "415-555-2602", "email": "m.wazowski@monstersinc.com", "role": "Head of Operations" }
+    ],
+    "deal_stage": "renewal",
+    "last_activity": "2026-03-14",
+    "contract_value": 145000,
+    "contract_renewal_date": "2026-07-01",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-027",
+    "company_name": "Lacroix Capital",
+    "contacts": [
+      { "name": "Sarah Nakamura", "phone": "212-555-2701", "email": "s.nakamura@lacroixcap.com", "role": "Managing Director" }
+    ],
+    "deal_stage": "negotiation",
+    "last_activity": "2026-03-23",
+    "contract_value": 560000,
+    "contract_renewal_date": "2027-01-15",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-028",
+    "company_name": "Pendant Publishing",
+    "contacts": [
+      { "name": "George Steinbrenner", "phone": "212-555-2801", "email": "g.steinbrenner@pendant.com", "role": "Publisher" },
+      { "name": "Elaine Benes", "phone": "212-555-2802", "email": "e.benes@pendant.com", "role": "Editor" }
+    ],
+    "deal_stage": "closed_won",
+    "last_activity": "2026-02-10",
+    "contract_value": 72000,
+    "contract_renewal_date": "2026-08-31",
+    "account_status": "active"
+  },
+  {
+    "id": "acc-029",
+    "company_name": "Krusty Burger Holdings",
+    "contacts": [
+      { "name": "Krusty Krab", "phone": "503-555-2901", "email": "k.krab@krustyburgerhq.com", "role": "Franchiser" }
+    ],
+    "deal_stage": "closed_lost",
+    "last_activity": "2025-09-01",
+    "contract_value": 34000,
+    "contract_renewal_date": "",
+    "account_status": "churned"
+  },
+  {
+    "id": "acc-030",
+    "company_name": "Aperture Science",
+    "contacts": [
+      { "name": "Cave Johnson", "phone": "650-555-3001", "email": "c.johnson@aperturescience.com", "role": "Founder" },
+      { "name": "Caroline Bennett", "phone": "650-555-3002", "email": "c.bennett@aperturescience.com", "role": "Executive Assistant" }
+    ],
+    "deal_stage": "negotiation",
+    "last_activity": "2026-03-16",
+    "contract_value": 310000,
+    "contract_renewal_date": "2026-12-31",
+    "account_status": "active"
+  }
+]

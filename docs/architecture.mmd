@@ -1,0 +1,96 @@
+flowchart TD
+    subgraph Entry["Entry Point"]
+        IDX["index.ts
+parses --episodes flag
+generates task list"]
+    end
+
+    subgraph Runner["Episode Runner"]
+        ER["episode-runner.ts
+runEpisodes / runEpisode"]
+        LOG["logger.ts
+chalk terminal output"]
+    end
+
+    subgraph CallerLayer["External Caller (outside env)"]
+        CALLER["llm-agent.ts
+LLMAgent
+message history
+hardcoded action tools"]
+        ANTHROPIC_C["Anthropic API
+claude-sonnet-4-6
+tool_use"]
+    end
+
+    subgraph EnvLayer["RL Environment"]
+        ENV["environment.ts
+VoiceAgentEnv
+reset / step / reward
+CallerAction routing
+call outcome simulation"]
+        TASKS["tasks.ts
+generateTask
+SIMPLE_LOOKUP
+DISAMBIGUATION"]
+        REWARD["reward.ts
+computeReward
++10 / -1 / -5 ..."]
+    end
+
+    subgraph VoiceAgentLayer["Voice Agent (inside env)"]
+        VA["voice-agent.ts
+VoiceAgent
+agentic tool loop
+per utterance"]
+        ANTHROPIC_V["Anthropic API
+claude-sonnet-4-6
+tool_use"]
+    end
+
+    subgraph MCPLayer["CRM MCP Layer (in-process)"]
+        CLIENT["MCP Client
+@modelcontextprotocol/sdk"]
+        TRANSPORT["InMemoryTransport
+linked pair"]
+        SERVER["MCP Server
+3 tools:
+lookup_account
+get_account_field
+search_contacts"]
+    end
+
+    subgraph DataLayer["CRM Data (shared store)"]
+        STORE["store.ts
+in-memory indices
+findByName
+findByContactName
+getFieldValue"]
+        JSON["data.json
+30 accounts
+Zod validated"]
+    end
+
+    IDX -->|"tasks + agent"| ER
+    ER -->|"act(state)"| CALLER
+    ER -->|"reset / step(CallerAction)"| ENV
+    ER -->|"log turns + summaries"| LOG
+
+    CALLER -->|"messages.create"| ANTHROPIC_C
+    ANTHROPIC_C -->|"tool_use block"| CALLER
+    CALLER -->|"AgentAction"| ER
+
+    ENV -->|"handleUtterance(text)"| VA
+    TASKS -->|"Task"| ENV
+    REWARD -->|"reward delta"| ENV
+
+    VA -->|"messages.create"| ANTHROPIC_V
+    ANTHROPIC_V -->|"tool_use block"| VA
+    VA -->|"callTool(name, args)"| CLIENT
+
+    CLIENT <-->|"JSON-RPC"| TRANSPORT
+    TRANSPORT <-->|"JSON-RPC"| SERVER
+
+    SERVER -->|"lookup / getField"| STORE
+    STORE -->|"Zod.parse"| JSON
+
+    STORE -.->|"ground truth for reward eval"| ENV
