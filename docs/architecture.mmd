@@ -1,58 +1,71 @@
 flowchart TD
     subgraph Entry["Entry Point"]
-        IDX["index.ts
+        IDX["INDEX.TS
+────────────────────
 parses --episodes flag
 generates task list"]
     end
 
     subgraph Runner["Episode Runner"]
-        ER["episode-runner.ts
+        ER["EPISODE-RUNNER.TS
+────────────────────
 runEpisodes / runEpisode"]
-        LOG["logger.ts
+        LOG["LOGGER.TS
+────────────────────
 chalk terminal output"]
     end
 
     subgraph CallerLayer["External Caller (outside env)"]
-        CALLER["llm-agent.ts
+        CALLER["LLM-AGENT.TS
+────────────────────
 LLMAgent
 message history
 hardcoded action tools"]
-        ANTHROPIC_C["Anthropic API
+        ANTHROPIC_C["ANTHROPIC API
+────────────────────
 claude-sonnet-4-6
 tool_use"]
     end
 
     subgraph EnvLayer["RL Environment"]
-        ENV["environment.ts
+        ENV["ENVIRONMENT.TS
+────────────────────
 VoiceAgentEnv
 reset / step / reward
 CallerAction routing
 call outcome simulation"]
-        TASKS["tasks.ts
+        TASKS["TASKS.TS
+────────────────────
 generateTask
 SIMPLE_LOOKUP
 DISAMBIGUATION"]
-        REWARD["reward.ts
+        REWARD["REWARD.TS
+────────────────────
 computeReward
 +10 / -1 / -5 ..."]
     end
 
     subgraph VoiceAgentLayer["Voice Agent (inside env)"]
-        VA["voice-agent.ts
+        VA["VOICE-AGENT.TS
+────────────────────
 VoiceAgent
 agentic tool loop
 per utterance"]
-        ANTHROPIC_V["Anthropic API
+        ANTHROPIC_V["ANTHROPIC API
+────────────────────
 claude-sonnet-4-6
 tool_use"]
     end
 
     subgraph MCPLayer["CRM MCP Layer (in-process)"]
-        CLIENT["MCP Client
+        CLIENT["MCP CLIENT
+────────────────────
 @modelcontextprotocol/sdk"]
-        TRANSPORT["InMemoryTransport
+        TRANSPORT["INMEMORY TRANSPORT
+────────────────────
 linked pair"]
-        SERVER["MCP Server
+        SERVER["MCP SERVER
+────────────────────
 3 tools:
 lookup_account
 get_account_field
@@ -60,12 +73,14 @@ search_contacts"]
     end
 
     subgraph DataLayer["CRM Data (shared store)"]
-        STORE["store.ts
+        STORE["STORE.TS
+────────────────────
 in-memory indices
 findByName
 findByContactName
 getFieldValue"]
-        JSON["data.json
+        JSON["DATA.JSON
+────────────────────
 30 accounts
 Zod validated"]
     end
