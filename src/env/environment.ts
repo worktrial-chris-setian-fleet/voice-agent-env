@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createCrmMcpPair } from '../mcp/server.js';
 import { VoiceAgent } from '../voice-agent/voice-agent.js';
-import { computeReward, REWARD } from './reward.js';
+import { REWARD, turnPenalty } from './reward.js';
 import type { Task, EpisodeState, StepResult, RewardEvent, CallerAction } from './types.js';
 import type { McpPair } from '../mcp/server.js';
 import type { CallState } from '../dialogue/types.js';
@@ -27,6 +27,7 @@ export class VoiceAgentEnv {
   private state: EpisodeState | null = null;
   private rewardBreakdown: { event: RewardEvent; amount: number }[] = [];
   private totalReward = 0;
+  private penaltyTurnCount = 0;
 
   constructor(anthropic: Anthropic, options: EnvOptions = {}) {
     this.anthropic = anthropic;
@@ -46,6 +47,7 @@ export class VoiceAgentEnv {
     this.voiceAgent = new VoiceAgent(this.anthropic, this.pair.client);
     this.rewardBreakdown = [];
     this.totalReward = 0;
+    this.penaltyTurnCount = 0;
     this.state = {
       task,
       conversationHistory: [],
@@ -62,14 +64,22 @@ export class VoiceAgentEnv {
     if (!this.pair || !this.voiceAgent || !this.state) throw new Error('Call reset() first');
     if (this.state.episodeEnded) throw new Error('Episode already ended');
 
+    let stepReward = 0;
     const rewardEvents: RewardEvent[] = [];
     let responseText = '';
     let done = false;
     let newCallState: CallState = this.state.callState;
     const newHistory = [...this.state.conversationHistory];
 
+    const addReward = (event: RewardEvent, amount: number) => {
+      rewardEvents.push(event);
+      stepReward += amount;
+      this.rewardBreakdown.push({ event, amount });
+    };
+
     if (action.type === 'initiate_call') {
-      rewardEvents.push('TURN_PENALTY');
+      this.penaltyTurnCount++;
+      addReward('TURN_PENALTY', turnPenalty(this.penaltyTurnCount));
       const outcome = this.forceAnswered ? 'ANSWERED' : pickCallOutcome();
       newHistory.push({ speaker: 'CALLER', utterance: `[dials ${action.target}]` });
 
@@ -81,10 +91,10 @@ export class VoiceAgentEnv {
       } else {
         if (outcome === 'ANSWERING_MACHINE') {
           responseText = 'Reached answering machine.';
-          rewardEvents.push('ANSWERING_MACHINE');
+          addReward('ANSWERING_MACHINE', REWARD.ANSWERING_MACHINE);
         } else if (outcome === 'WRONG_NUMBER') {
           responseText = "Wrong number.";
-          rewardEvents.push('WRONG_NUMBER');
+          addReward('WRONG_NUMBER', REWARD.WRONG_NUMBER);
         } else {
           responseText = 'No answer.';
         }
@@ -93,7 +103,8 @@ export class VoiceAgentEnv {
       }
 
     } else if (action.type === 'speak') {
-      rewardEvents.push('TURN_PENALTY');
+      this.penaltyTurnCount++;
+      addReward('TURN_PENALTY', turnPenalty(this.penaltyTurnCount));
       newHistory.push({ speaker: 'CALLER', utterance: action.utterance });
       responseText = await this.voiceAgent.handleUtterance(action.utterance);
       newHistory.push({ speaker: 'VOICE_AGENT', utterance: responseText });
@@ -105,24 +116,20 @@ export class VoiceAgentEnv {
       const submitted = normalizeAnswer(action.value);
       const target = normalizeAnswer(this.state.task.targetValue);
       if (answersMatch(submitted, target)) {
-        rewardEvents.push('CORRECT_ANSWER');
+        addReward('CORRECT_ANSWER', REWARD.CORRECT_ANSWER);
       } else {
-        rewardEvents.push('WRONG_ANSWER');
+        addReward('WRONG_ANSWER', REWARD.WRONG_ANSWER);
       }
       responseText = `Answer submitted: ${action.field} = ${action.value}`;
 
     } else if (action.type === 'end_call') {
       done = true;
       newCallState = 'ENDED';
-      rewardEvents.push('CALL_ENDED_NO_ANSWER');
+      addReward('CALL_ENDED_NO_ANSWER', REWARD.CALL_ENDED_NO_ANSWER);
       responseText = 'Call ended.';
     }
 
-    const stepReward = computeReward(rewardEvents);
     this.totalReward += stepReward;
-    for (const e of rewardEvents) {
-      this.rewardBreakdown.push({ event: e, amount: REWARD[e] });
-    }
 
     this.state = {
       ...this.state,
@@ -146,7 +153,9 @@ function normalizeAnswer(s: string): string {
 
 function answersMatch(a: string, b: string): boolean {
   if (a === b) return true;
-  const na = parseFloat(a), nb = parseFloat(b);
-  if (!isNaN(na) && !isNaN(nb)) return Math.abs(na - nb) < 0.01;
+  // Only use numeric comparison when the entire string is a number.
+  // parseFloat("2026-03-10") = 2026, which falsely matches other 2026 dates.
+  const na = Number(a), nb = Number(b);
+  if (!isNaN(na) && !isNaN(nb) && a.trim() !== '' && b.trim() !== '') return Math.abs(na - nb) < 0.01;
   return false;
 }
