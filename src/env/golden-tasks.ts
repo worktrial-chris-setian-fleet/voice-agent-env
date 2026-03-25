@@ -1,5 +1,10 @@
 import { findByName, getFieldValue } from '../crm/store.js';
-import type { Task } from './types.js';
+import type { ScenarioSpec } from './types.js';
+import {
+  buildDisambiguationScenario,
+  buildResolveThenRetrieveScenario,
+  buildSimpleLookupScenario,
+} from './scenarios/index.js';
 
 /**
  * Five static scenarios that form the canonical regression suite.
@@ -11,7 +16,7 @@ import type { Task } from './types.js';
  *  - Includes one deterministic multistep resolve-then-retrieve scenario.
  *  - Run with `npm run golden` (forces ANSWERED so there are no random failures).
  */
-function buildGoldenTasks(): Task[] {
+function buildGoldenTasks(): ScenarioSpec[] {
   const acme     = findByName('Acme Corp')[0]!;
   const globex   = findByName('Globex Corporation')[0]!;
   const umbrella = findByName('Umbrella Technologies')[0]!;
@@ -20,87 +25,63 @@ function buildGoldenTasks(): Task[] {
 
   return [
     // ── 1. SIMPLE_LOOKUP — numeric field ─────────────────────────────────────
-    {
-      type: 'SIMPLE_LOOKUP',
-      description: 'Find the contract value for "Acme Corp". Be concise and professional.',
-      targetAccountId: acme.id,
-      targetField: 'contract_value',
-      targetValue: getFieldValue(acme, 'contract_value'),
+    buildSimpleLookupScenario({
+      account: acme,
+      field: 'contract_value',
       difficulty: 'easy',
       callerPersona: 'professional',
       queryStyle: 'direct',
-    },
+    }),
 
     // ── 2. SIMPLE_LOOKUP — date field ─────────────────────────────────────────
-    {
-      type: 'SIMPLE_LOOKUP',
-      description: 'Give Globex Corporation a quick call and ask about their contract renewal date. Keep it casual and friendly.',
-      targetAccountId: globex.id,
-      targetField: 'contract_renewal_date',
-      targetValue: getFieldValue(globex, 'contract_renewal_date'),
+    buildSimpleLookupScenario({
+      account: globex,
+      field: 'contract_renewal_date',
       difficulty: 'easy',
       callerPersona: 'casual',
       queryStyle: 'conversational',
-    },
+    }),
 
     // ── 3. SIMPLE_LOOKUP — string enum field ──────────────────────────────────
-    {
-      type: 'SIMPLE_LOOKUP',
-      description: 'Find the deal stage for "Umbrella Technologies". Be direct and efficient — no small talk, just the data.',
-      targetAccountId: umbrella.id,
-      targetField: 'deal_stage',
-      targetValue: getFieldValue(umbrella, 'deal_stage'),
+    buildSimpleLookupScenario({
+      account: umbrella,
+      field: 'deal_stage',
       difficulty: 'easy',
       callerPersona: 'assertive',
       queryStyle: 'direct',
-    },
+    }),
 
     // ── 4. DISAMBIGUATION — must narrow down from 5 Sarahs ────────────────────
-    {
-      type: 'DISAMBIGUATION',
-      description: 'Find the account status for the account managed by "Sarah Johnson". You do not know the company — call using "Sarah" and disambiguate. Be concise and professional.',
-      targetAccountId: initech.id,
-      targetField: 'account_status',
-      targetValue: getFieldValue(initech, 'account_status'),
+    buildDisambiguationScenario({
+      account: initech,
+      field: 'account_status',
       ambiguousName: 'Sarah',
       difficulty: 'easy',
       callerPersona: 'professional',
       queryStyle: 'direct',
-    },
+    }),
 
     // ── 5. DISAMBIGUATION — verify style ─────────────────────────────────────
-    {
-      type: 'DISAMBIGUATION',
-      description: 'Confirm the last activity date for Sarah Waugh\'s account. You don\'t know the company — start by calling "Sarah" and narrow it down. Keep it casual and friendly.',
-      targetAccountId: soylent.id,
-      targetField: 'last_activity',
-      targetValue: getFieldValue(soylent, 'last_activity'),
+    buildDisambiguationScenario({
+      account: soylent,
+      field: 'last_activity',
       ambiguousName: 'Sarah',
       difficulty: 'easy',
       callerPersona: 'casual',
       queryStyle: 'verify',
-    },
+    }),
 
     // ── 6. RESOLVE_THEN_RETRIEVE — resolve "Technologies" by status, then retrieve ──
-    {
-      type: 'RESOLVE_THEN_RETRIEVE',
-      description: 'Verify the contract value for the account matching "Technologies" with account status "active". First identify the correct account, then confirm the contract value. Be concise and professional.',
-      targetAccountId: umbrella.id,
-      targetField: 'contract_value',
-      targetValue: getFieldValue(umbrella, 'contract_value'),
+    buildResolveThenRetrieveScenario({
+      account: umbrella,
       callTarget: 'Technologies',
-      resolutionClues: [
-        {
-          field: 'account_status',
-          value: getFieldValue(umbrella, 'account_status'),
-          label: 'account status = active',
-        },
-      ],
+      targetField: 'contract_value',
+      clueFields: ['account_status'],
       difficulty: 'easy',
       callerPersona: 'professional',
       queryStyle: 'verify',
-    },
+    }),
   ];
 }
 
-export const GOLDEN_TASKS: Task[] = buildGoldenTasks();
+export const GOLDEN_TASKS: ScenarioSpec[] = buildGoldenTasks();

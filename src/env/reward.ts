@@ -6,6 +6,7 @@ export const REWARD: Record<RewardEvent, number> = {
   CALL_ENDED_NO_ANSWER: -3,
   ANSWERING_MACHINE: -2,
   WRONG_NUMBER: -2,
+  INVALID_ACTION: -2,
   RESOLUTION_CLUE_CONFIRMED: 1,
   TARGET_FIELD_OBSERVED: 1,
   TURN_PENALTY: -1, // base value; applied to spoken turns and retry dial attempts

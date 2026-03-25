@@ -6,6 +6,7 @@
     "start": "tsx src/index.ts",
     "golden": "tsx src/golden-run.ts",
     "stress": "tsx src/stress-run.ts",
+    "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

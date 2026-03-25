@@ -1,18 +1,18 @@
 import chalk from 'chalk';
 import type { AgentAction } from '../agent/types.js';
-import type { ProgressPhase, StepResult, EpisodeResult, Task, TaskType } from '../env/types.js';
+import type { ProgressPhase, StepResult, EpisodeResult, ScenarioSpec, TaskType } from '../env/types.js';
 
 export class Logger {
   private lastLoggedTurn: number | null = null;
 
-  episodeStart(index: number, task: Task): void {
+  episodeStart(index: number, spec: ScenarioSpec): void {
     this.lastLoggedTurn = null;
     console.log('');
     console.log(chalk.bold.white('═'.repeat(60)));
-    console.log(chalk.bold.white(`  EPISODE ${index + 1} — ${task.type}`));
+    console.log(chalk.bold.white(`  EPISODE ${index + 1} — ${spec.brief.type}`));
     console.log(chalk.bold.white('═'.repeat(60)));
-    console.log(chalk.bold.white('Task:'), task.description);
-    console.log(chalk.bold.white('Field:'), task.targetField);
+    console.log(chalk.bold.white('Task:'), spec.brief.instructions);
+    console.log(chalk.bold.white('Field:'), spec.brief.targetField);
     console.log(chalk.bold.white('─'.repeat(60)));
   }
 
@@ -30,7 +30,7 @@ export class Logger {
 
   stepResult(result: StepResult): void {
     // Print voice agent response
-    console.log(chalk.yellow(`  VOICE AGENT: ${result.state.lastResponse}`));
+    console.log(chalk.yellow(`  VOICE AGENT: ${result.observation.lastResponse}`));
 
     if (
       result.progressUpdate.newlyConfirmedClues.length > 0 ||
@@ -53,6 +53,11 @@ export class Logger {
       console.log(chalk.magenta(`  Progress: ${parts.join(' | ')}`));
     }
 
+    if (result.invalidActionReason) {
+      const reason = result.invalidActionReason.replace(/_/g, ' ').toLowerCase();
+      console.log(chalk.red(`  Invalid: ${reason}`));
+    }
+
     if (result.reward !== 0 || result.rewardEvents.length > 0) {
       const rewardSign = result.reward >= 0 ? '+' : '';
       const rewardColor = result.reward >= 0 ? chalk.green : chalk.red;
@@ -69,14 +74,14 @@ export class Logger {
     console.log(chalk.bold.white('┌' + '─'.repeat(58) + '┐'));
     console.log(chalk.bold.white('│') + chalk.bold.white(` Episode ${result.episodeIndex + 1} Summary`.padEnd(58)) + chalk.bold.white('│'));
     console.log(chalk.bold.white('├' + '─'.repeat(58) + '┤'));
-    console.log(chalk.bold.white('│') + ` Task Type:    ${result.task.type}`.padEnd(58) + chalk.bold.white('│'));
-    console.log(chalk.bold.white('│') + ` Field:        ${result.task.targetField}`.padEnd(58) + chalk.bold.white('│'));
+    console.log(chalk.bold.white('│') + ` Task Type:    ${result.spec.brief.type}`.padEnd(58) + chalk.bold.white('│'));
+    console.log(chalk.bold.white('│') + ` Field:        ${result.spec.brief.targetField}`.padEnd(58) + chalk.bold.white('│'));
     console.log(chalk.bold.white('│') + ` Turns:        ${result.turnCount}`.padEnd(58) + chalk.bold.white('│'));
     const submitted = result.submittedAnswer === null
       ? '(none)'
       : `${result.submittedField ?? '(unknown field)'} = ${result.submittedAnswer}`;
     console.log(chalk.bold.white('│') + ` Answer:       ${submitted}`.padEnd(58) + chalk.bold.white('│'));
-    console.log(chalk.bold.white('│') + ` Target:       ${result.task.targetValue}`.padEnd(58) + chalk.bold.white('│'));
+    console.log(chalk.bold.white('│') + ` Target:       ${result.spec.targetValue}`.padEnd(58) + chalk.bold.white('│'));
     if (result.progress.totalResolutionClues > 0) {
       console.log(
         chalk.bold.white('│') +
@@ -121,12 +126,12 @@ export class Logger {
 
     const grouped = new Map<TaskType, EpisodeResult[]>();
     for (const result of results) {
-      const existing = grouped.get(result.task.type) ?? [];
+      const existing = grouped.get(result.spec.brief.type) ?? [];
       existing.push(result);
-      grouped.set(result.task.type, existing);
+      grouped.set(result.spec.brief.type, existing);
     }
 
-    const multistep = results.filter(r => r.task.type === 'RESOLVE_THEN_RETRIEVE');
+    const multistep = results.filter(r => r.spec.brief.type === 'RESOLVE_THEN_RETRIEVE');
     const avgResolutionRate = multistep.length > 0
       ? (
           multistep.reduce((sum, r) =>

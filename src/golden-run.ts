@@ -38,11 +38,11 @@ console.log(chalk.bold.white('╠' + '═'.repeat(60) + '╣'));
 for (const r of results) {
   const icon    = r.success ? chalk.green('✓') : chalk.red('✗');
   const outcome = r.success ? chalk.green('PASS') : chalk.red('FAIL');
-  const label   = `  ${icon} Task ${r.episodeIndex + 1}: ${r.task.type} / ${r.task.targetField}`;
+  const label   = `  ${icon} Task ${r.episodeIndex + 1}: ${r.spec.brief.type} / ${r.spec.brief.targetField}`;
   const reward  = `reward ${r.totalReward >= 0 ? '+' : ''}${r.totalReward}`;
   const line    = `${label}  (${outcome}, ${reward})`;
   // chalk escape codes add invisible chars — pad the visible portion manually
-  const visibleLen = `  - Task ${r.episodeIndex + 1}: ${r.task.type} / ${r.task.targetField}  (${r.success ? 'PASS' : 'FAIL'}, ${reward})`.length;
+  const visibleLen = `  - Task ${r.episodeIndex + 1}: ${r.spec.brief.type} / ${r.spec.brief.targetField}  (${r.success ? 'PASS' : 'FAIL'}, ${reward})`.length;
   const padding = Math.max(0, 60 - visibleLen);
   console.log(chalk.bold.white('║') + line + ' '.repeat(padding) + chalk.bold.white('║'));
 }

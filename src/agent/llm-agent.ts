@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Agent, AgentAction } from './types.js';
-import type { EpisodeState, Task } from '../env/types.js';
+import type { CallerBrief, EpisodeObservation } from '../env/types.js';
 
 const CALLER_TOOLS: Anthropic.Tool[] = [
   {
@@ -72,17 +72,17 @@ export class LLMAgent implements Agent {
     this.anthropic = anthropic;
   }
 
-  reset(task: Task): void {
+  reset(brief: CallerBrief): void {
     this.messageHistory = [];
     this.pendingToolUseId = null;
     this.pendingToolResultIndex = null;
     this.systemPrompt = SYSTEM_PROMPT_TEMPLATE
-      .replace('{TASK_DESCRIPTION}', task.description)
-      .replaceAll('{TARGET_FIELD}', task.targetField);
+      .replace('{TASK_DESCRIPTION}', brief.instructions)
+      .replaceAll('{TARGET_FIELD}', brief.targetField);
   }
 
-  async act(state: EpisodeState): Promise<AgentAction> {
-    if (state.turnCount >= 20) {
+  async act(observation: EpisodeObservation): Promise<AgentAction> {
+    if (observation.turnCount >= 20) {
       return { toolName: 'end_call', arguments: {} };
     }
 
@@ -92,22 +92,22 @@ export class LLMAgent implements Agent {
       if (msg && Array.isArray(msg.content)) {
         const block = msg.content[0];
         if (block && block.type === 'tool_result') {
-          block.content = state.lastResponse;
+          block.content = observation.lastResponse;
         }
       }
       this.pendingToolUseId = null;
       this.pendingToolResultIndex = null;
     } else {
       // First call: push the initial user message describing the task
-      const recentHistory = state.conversationHistory.slice(-3);
+      const recentHistory = observation.conversationHistory.slice(-3);
       const historyText = recentHistory.length > 0
         ? recentHistory.map(turn => `${turn.speaker}: ${turn.utterance}`).join('\n')
         : '(no conversation yet)';
 
       const userMessage = `Current State:
-- Call State: ${state.callState}
-- Turn Count: ${state.turnCount}
-- Last Response: ${state.lastResponse}
+- Call State: ${observation.callState}
+- Turn Count: ${observation.turnCount}
+- Last Response: ${observation.lastResponse}
 
 Recent Conversation:
 ${historyText}

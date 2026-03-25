@@ -16,10 +16,10 @@ const logger = new Logger();
 
 // Generate a mix of task types
 const TASK_TYPES: TaskType[] = ['SIMPLE_LOOKUP', 'DISAMBIGUATION', 'RESOLVE_THEN_RETRIEVE'];
-const tasks = Array.from({ length: N_EPISODES }, (_, i) =>
+const specs = Array.from({ length: N_EPISODES }, (_, i) =>
   generateTask({ type: TASK_TYPES[i % TASK_TYPES.length] })
 );
 
 const agent = new LLMAgent(anthropic);
 
-await runEpisodes(agent, tasks, logger, anthropic);
+await runEpisodes(agent, specs, logger, anthropic);

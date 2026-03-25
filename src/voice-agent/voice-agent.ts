@@ -1,10 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { QueryableField } from '../crm/types.js';
+import { makeClueKey, normalizeAnswer, normalizeFieldName } from '../env/answer-utils.js';
 import type {
-  VoiceAgentEvent,
   VoiceAgentResolutionClue,
+  VoiceAgentSemanticEvent,
   VoiceAgentSessionConfig,
+  VoiceAgentToolEvent,
   VoiceAgentTurnResult,
 } from './types.js';
 
@@ -68,7 +70,8 @@ export class VoiceAgent {
     }
 
     this.history.push({ role: 'user', content: callerUtterance });
-    const events: VoiceAgentEvent[] = [];
+    const semanticEvents: VoiceAgentSemanticEvent[] = [];
+    const toolEvents: VoiceAgentToolEvent[] = [];
 
     // Agentic tool loop: run until end_turn
     while (true) {
@@ -84,7 +87,11 @@ export class VoiceAgent {
 
       if (response.stop_reason === 'end_turn') {
         const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-        return { text: textBlock ? textBlock.text : '(no response)', events };
+        return {
+          text: textBlock ? textBlock.text : '(no response)',
+          semanticEvents,
+          toolEvents,
+        };
       }
 
       if (response.stop_reason === 'tool_use') {
@@ -112,9 +119,10 @@ export class VoiceAgent {
             .filter(c => c.type === 'text')
             .map(c => c.text)
             .join('\n');
-          const newEvents = extractVoiceAgentEvents(block.name, block.input as Record<string, string>, text);
-          events.push(...newEvents);
-          this.trackMultistepProgress(newEvents);
+          const newToolEvents = extractToolEvents(block.name, block.input as Record<string, string>, text);
+          toolEvents.push(...newToolEvents);
+          const newSemanticEvents = this.deriveSemanticEvents(newToolEvents);
+          semanticEvents.push(...newSemanticEvents);
           toolResults.push({
             type: 'tool_result' as const,
             tool_use_id: block.id,
@@ -179,22 +187,52 @@ This call is in RESOLVE_THEN_RETRIEVE mode.
     return 'Resolution first: identify the matching account using the caller\'s clues, tell the caller which account you found, and ask a natural follow-up question before retrieving other account fields.';
   }
 
-  private trackMultistepProgress(events: VoiceAgentEvent[]): void {
-    if (this.sessionConfig.mode !== 'resolve_then_retrieve' || this.multistepPhase !== 'resolving') {
-      return;
-    }
+  private deriveSemanticEvents(toolEvents: VoiceAgentToolEvent[]): VoiceAgentSemanticEvent[] {
+    const semanticEvents: VoiceAgentSemanticEvent[] = [];
 
-    for (const event of events) {
-      if (event.type !== 'field_retrieved') continue;
+    for (const event of toolEvents) {
+      if (event.type === 'lookup_failed') {
+        semanticEvents.push({
+          type: 'lookup_failed',
+          tool: event.tool,
+          query: event.query,
+        });
+        continue;
+      }
+
+      if (event.type !== 'field_retrieved') {
+        continue;
+      }
+
+      semanticEvents.push({
+        type: 'field_returned',
+        accountId: event.accountId,
+        companyName: event.companyName,
+        field: event.field,
+        value: event.value,
+      });
+
+      if (this.sessionConfig.mode !== 'resolve_then_retrieve' || this.multistepPhase !== 'resolving') {
+        continue;
+      }
 
       const matchedClue = this.sessionConfig.resolutionClues.find((clue) =>
         normalizeFieldName(clue.field) === normalizeFieldName(event.field) &&
         normalizeAnswer(clue.value) === normalizeAnswer(event.value)
       );
 
-      if (!matchedClue) continue;
+      if (!matchedClue) {
+        continue;
+      }
 
-      const clueKey = toClueKey(matchedClue);
+      semanticEvents.push({
+        type: 'resolution_clue_confirmed',
+        clue: matchedClue,
+        accountId: event.accountId,
+        companyName: event.companyName,
+      });
+
+      const clueKey = makeClueKey(matchedClue.field, matchedClue.value);
       const existing = this.matchedCluesByAccount.get(event.accountId) ?? {
         companyName: event.companyName,
         clueKeys: new Set<string>(),
@@ -203,20 +241,35 @@ This call is in RESOLVE_THEN_RETRIEVE mode.
       existing.clueKeys.add(clueKey);
       this.matchedCluesByAccount.set(event.accountId, existing);
 
-      if (existing.clueKeys.size === this.sessionConfig.resolutionClues.length) {
+      if (
+        existing.clueKeys.size === this.sessionConfig.resolutionClues.length &&
+        this.resolvedAccountId !== event.accountId
+      ) {
         this.resolvedAccountId = event.accountId;
         this.resolvedCompanyName = event.companyName;
         this.multistepPhase = 'awaiting_follow_up';
+        semanticEvents.push({
+          type: 'account_resolved',
+          accountId: event.accountId,
+          companyName: event.companyName,
+        });
+        semanticEvents.push({
+          type: 'follow_up_requested',
+          accountId: event.accountId,
+          companyName: event.companyName,
+        });
       }
     }
+
+    return semanticEvents;
   }
 }
 
-function extractVoiceAgentEvents(
+function extractToolEvents(
   toolName: string,
   input: Record<string, string>,
   text: string
-): VoiceAgentEvent[] {
+): VoiceAgentToolEvent[] {
   if (toolName === 'lookup_account' || toolName === 'search_contacts') {
     const query = input['name'] ?? '';
     const parsed = parseJson<Array<{ id?: string; account_id?: string }>>(text);
@@ -275,20 +328,4 @@ function parseJson<T>(text: string): T | null {
   } catch {
     return null;
   }
-}
-
-function normalizeAnswer(s: string): string {
-  return s.toLowerCase().replace(/[$,_]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function normalizeFieldName(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_')
-    .replace(/_+/g, '_');
-}
-
-function toClueKey(clue: VoiceAgentResolutionClue): string {
-  return `${normalizeFieldName(clue.field)}::${normalizeAnswer(clue.value)}`;
 }
