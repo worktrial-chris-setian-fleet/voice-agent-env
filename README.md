@@ -19,7 +19,7 @@ cp .env.example .env       # add your ANTHROPIC_API_KEY
 npm install
 npm start                  # 5 random episodes
 npm start -- --episodes 10 # custom count
-npm run golden             # 5 fixed regression scenarios
+npm run golden             # 6 fixed regression scenarios
 ```
 
 `npm run golden` exits non-zero if any scenario fails — use it after changes to verify nothing regressed.
@@ -30,6 +30,7 @@ npm run golden             # 5 fixed regression scenarios
 |------|-------------|
 | `SIMPLE_LOOKUP` | Caller knows the company name; one call and one question is sufficient. |
 | `DISAMBIGUATION` | Caller only has a contact first name shared across multiple accounts; must narrow down through conversation. |
+| `RESOLVE_THEN_RETRIEVE` | Caller has a partial identity plus one or more clues, and must identify the correct account before retrieving the final target field. |
 
 Tasks are also varied across **difficulty** (exact name vs. partial), **caller persona** (professional / casual / assertive / uncertain), and **query style** (direct / conversational / verify). See [`docs/evaluation.md`](docs/evaluation.md) for the full breakdown.
 
@@ -41,9 +42,12 @@ Tasks are also varied across **difficulty** (exact name vs. partial), **caller p
 | Wrong answer | −5 |
 | End call without answer | −3 |
 | Answering machine / wrong number | −2 |
+| Each multistep clue confirmed | +1 |
+| Multistep target field observed before submit | +1 |
 | Each `speak`, and each retry dial after the first | −1 |
 
 A perfect episode — one free dial, one question, correct answer — scores **+9**.
+A perfect single-clue `RESOLVE_THEN_RETRIEVE` episode scores **+11**.
 
 ---
 
@@ -54,6 +58,7 @@ The −1/turn penalty creates constant pressure toward efficiency. The interesti
 **Where agents get stuck:**
 - **Answering machine without retry** — treating a failed call as the end of the episode rather than retrying, leaving reward on the table
 - **Disambiguation loops** — asking for information before resolving which account is being discussed, causing the voice agent to re-prompt and burning turns
+- **Resolve-then-retrieve collapse** — identifying the right account but failing to chain through to the final requested field
 - **Premature submission** — submitting a low-confidence answer to avoid another turn penalty, trading a likely +9 for a possible −6
 
 Detailed analysis in [`docs/design-notes.md → Reward Landscape`](docs/design-notes.md#reward-landscape).
@@ -99,4 +104,4 @@ The most impactful changes, roughly in order:
 
 3. **Add a learning step.** Collect `(state, action, reward)` tuples and run REINFORCE or PPO over the caller's action space. The environment interface is already compatible — this is additive, not structural.
 
-4. **Real voice I/O.** The boundary is `handleUtterance(text): Promise<string>`. Wrapping the input with Whisper STT and the output with ElevenLabs TTS is the only change needed to run the environment with real audio. Everything else — the caller, the environment, the reward logic — stays the same.
+4. **Real voice I/O.** The boundary is `handleUtterance(text): Promise<{ text, events }>`: caller-facing text plus environment-only trace metadata. Wrapping the input with Whisper STT and the output text with ElevenLabs TTS is still the only change needed to run the environment with real audio. Everything else — the caller, the environment, the reward logic — stays the same.

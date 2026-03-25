@@ -52,7 +52,7 @@ The updated prompt becomes the policy for the next generation. The previous prom
 Three evaluation modes, each serving a distinct purpose:
 
 **Golden suite (regression anchor)**
-`npm run golden` runs the same 5 fixed scenarios every generation. This is the floor — the policy must not get worse on known scenarios. If golden pass rate drops, the update is rejected. All 5 tasks are solvable in 2 turns; a healthy policy should hold 5/5 at +9 throughout training.
+`npm run golden` runs the same 6 fixed scenarios every generation. This is the floor — the policy must not get worse on known scenarios. If golden pass rate drops, the update is rejected. A healthy policy should hold 6/6 throughout training, including the multistep resolve-then-retrieve case.
 
 **Stress suite (improvement signal)**
 `npm run stress` runs 8 adversarial scenarios designed to expose known failure modes. Unlike the golden suite, some failures here are expected — the metric is reward score, not pass/fail. The suite targets four failure modes, two scenarios each:

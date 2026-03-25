@@ -1,5 +1,5 @@
-import { getAllAccounts, getFieldValue, findByContactName } from '../crm/store.js';
-import type { Task, TaskType, Difficulty, CallerPersona, QueryStyle } from './types.js';
+import { getAllAccounts, getFieldValue, findByContactName, findByName } from '../crm/store.js';
+import type { ResolutionClue, Task, TaskType, Difficulty, CallerPersona, QueryStyle } from './types.js';
 import type { QueryableField } from '../crm/types.js';
 import type { Account } from '../crm/types.js';
 
@@ -24,6 +24,34 @@ const PERSONA_SUFFIX: Record<CallerPersona, string> = {
   uncertain:    'You are not sure of all the details — ask clarifying questions as needed.',
 };
 
+interface ResolveThenRetrieveTemplate {
+  callTarget: string;
+  targetCompany: string;
+  targetField: QueryableField;
+  clueFields: QueryableField[];
+}
+
+const RESOLVE_THEN_RETRIEVE_TEMPLATES: ResolveThenRetrieveTemplate[] = [
+  {
+    callTarget: 'Sarah',
+    targetCompany: 'Initech Solutions',
+    targetField: 'contract_renewal_date',
+    clueFields: ['account_status'],
+  },
+  {
+    callTarget: 'Technologies',
+    targetCompany: 'Umbrella Technologies',
+    targetField: 'contract_value',
+    clueFields: ['account_status'],
+  },
+  {
+    callTarget: 'Sarah',
+    targetCompany: 'Lacroix Capital',
+    targetField: 'last_activity',
+    clueFields: ['deal_stage', 'account_status'],
+  },
+];
+
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -47,10 +75,11 @@ function buildDescription(params: {
   callTarget: string;
   contactFullName?: string;
   ambiguousName?: string;
+  resolutionClues?: ResolutionClue[];
   persona: CallerPersona;
   style: QueryStyle;
 }): string {
-  const { type, field, contactFullName, ambiguousName, persona, style } = params;
+  const { type, field, contactFullName, ambiguousName, resolutionClues, persona, style } = params;
   const fieldLabel = field.replace(/_/g, ' ');
   const target = params.callTarget;
 
@@ -68,7 +97,7 @@ function buildDescription(params: {
         task = `Verify the ${fieldLabel} currently on file for ${target} — call to confirm.`;
         break;
     }
-  } else {
+  } else if (type === 'DISAMBIGUATION') {
     // DISAMBIGUATION
     switch (style) {
       case 'direct':
@@ -81,13 +110,26 @@ function buildDescription(params: {
         task = `Confirm the ${fieldLabel} for ${contactFullName}'s account. You don't know the company — start by calling "${ambiguousName}" and narrow it down.`;
         break;
     }
+  } else {
+    const clueText = formatResolutionClues(resolutionClues ?? []);
+    switch (style) {
+      case 'direct':
+        task = `Find the ${fieldLabel} for the account matching "${target}" ${clueText}. First determine which account matches, then retrieve the ${fieldLabel}.`;
+        break;
+      case 'conversational':
+        task = `Call using "${target}". Work out which account matches ${clueText}, then ask for the ${fieldLabel}.`;
+        break;
+      case 'verify':
+        task = `Verify the ${fieldLabel} for the account matching "${target}" ${clueText}. First identify the correct account, then confirm the ${fieldLabel}.`;
+        break;
+    }
   }
 
   return `${task} ${PERSONA_SUFFIX[persona]}`;
 }
 
 export function generateTask(options: TaskOptions = {}): Task {
-  const type: TaskType    = options.type       ?? pick(['SIMPLE_LOOKUP', 'DISAMBIGUATION']);
+  const type: TaskType    = options.type       ?? pick(['SIMPLE_LOOKUP', 'DISAMBIGUATION', 'RESOLVE_THEN_RETRIEVE']);
   const difficulty        = options.difficulty ?? pick((['easy', 'easy', 'medium', 'hard'] as Difficulty[]));
   const callerPersona     = options.callerPersona ?? pick(CALLER_PERSONAS);
   const queryStyle        = options.queryStyle    ?? pick(QUERY_STYLES);
@@ -109,7 +151,7 @@ export function generateTask(options: TaskOptions = {}): Task {
       callerPersona,
       queryStyle,
     };
-  } else {
+  } else if (type === 'DISAMBIGUATION') {
     const ambiguousName = 'Sarah';
     const matchingAccounts = findByContactName(ambiguousName);
     const account = pick(matchingAccounts);
@@ -137,5 +179,48 @@ export function generateTask(options: TaskOptions = {}): Task {
       callerPersona,
       queryStyle,
     };
+  } else {
+    const template = pick(RESOLVE_THEN_RETRIEVE_TEMPLATES);
+    const account = findByName(template.targetCompany)[0]!;
+    const resolutionClues = buildResolutionClues(account, template.clueFields);
+    const value = getFieldValue(account, template.targetField);
+
+    return {
+      type,
+      description: buildDescription({
+        type,
+        field: template.targetField,
+        callTarget: template.callTarget,
+        resolutionClues,
+        persona: callerPersona,
+        style: queryStyle,
+      }),
+      targetAccountId: account.id,
+      targetField: template.targetField,
+      targetValue: value,
+      callTarget: template.callTarget,
+      resolutionClues,
+      difficulty,
+      callerPersona,
+      queryStyle,
+    };
   }
+}
+
+function buildResolutionClues(account: Account, clueFields: QueryableField[]): ResolutionClue[] {
+  return clueFields.map((field) => {
+    const value = getFieldValue(account, field);
+    return {
+      field,
+      value,
+      label: `${field.replace(/_/g, ' ')} = ${value}`,
+    };
+  });
+}
+
+function formatResolutionClues(clues: ResolutionClue[]): string {
+  if (clues.length === 0) return 'with no additional clues';
+  const parts = clues.map(clue => `${clue.field.replace(/_/g, ' ')} "${clue.value}"`);
+  if (parts.length === 1) return `with ${parts[0]}`;
+  return `with ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }

@@ -2,7 +2,7 @@ import { findByName, getFieldValue } from '../crm/store.js';
 import type { Task } from './types.js';
 
 /**
- * Six adversarial scenarios designed to expose known failure modes.
+ * Eight adversarial scenarios designed to expose known failure modes.
  *
  * Unlike the golden suite (which must always pass), stress tasks are expected
  * to fail. The signal is the reward score, not pass/fail — a prompt improvement
@@ -129,6 +129,59 @@ function buildStressTasks(): Task[] {
       callerPersona: 'uncertain',
       queryStyle: 'conversational',
     },
+
+    // ── S7: Resolve-then-retrieve — company fragment with one clue ────────────
+    // Failure mode: agent resolves the right company but stops before retrieving the target field
+    {
+      type: 'RESOLVE_THEN_RETRIEVE',
+      description:
+        'A company with "Technologies" in its name is currently active in your portfolio. ' +
+        'Call using "Technologies", work out which company that is, then get its contract renewal date. ' +
+        'Be concise and professional.',
+      targetAccountId: umbrella.id,
+      targetField: 'contract_renewal_date',
+      targetValue: getFieldValue(umbrella, 'contract_renewal_date'),
+      callTarget: 'Technologies',
+      resolutionClues: [
+        {
+          field: 'account_status',
+          value: getFieldValue(umbrella, 'account_status'),
+          label: 'account status = active',
+        },
+      ],
+      difficulty: 'easy',
+      callerPersona: 'professional',
+      queryStyle: 'direct',
+    },
+
+    // ── S8: Resolve-then-retrieve — two clues required before final field ─────
+    // Failure mode: agent confirms one clue but fails to chain through to the target field
+    {
+      type: 'RESOLVE_THEN_RETRIEVE',
+      description:
+        'Call using "Sarah". Determine which Sarah is associated with the account that is in the negotiation deal stage ' +
+        'and currently active, then get the last activity date. ' +
+        'You are not sure of all the details — ask clarifying questions as needed.',
+      targetAccountId: lacroix.id,
+      targetField: 'last_activity',
+      targetValue: getFieldValue(lacroix, 'last_activity'),
+      callTarget: 'Sarah',
+      resolutionClues: [
+        {
+          field: 'deal_stage',
+          value: getFieldValue(lacroix, 'deal_stage'),
+          label: 'deal stage = negotiation',
+        },
+        {
+          field: 'account_status',
+          value: getFieldValue(lacroix, 'account_status'),
+          label: 'account status = active',
+        },
+      ],
+      difficulty: 'easy',
+      callerPersona: 'uncertain',
+      queryStyle: 'conversational',
+    },
   ];
 }
 
@@ -142,4 +195,6 @@ export const STRESS_LABELS: string[] = [
   'S4: "Corp" → 3-company ambiguity (1-in-3 guess)',
   'S5: Two-Sarah negotiation — chain to renewal date',
   'S6: No-clue Sarah — no last name, no role, no company',
+  'S7: Resolve "Technologies" by active status, then retrieve',
+  'S8: Resolve "Sarah" by negotiation + active, then retrieve',
 ];

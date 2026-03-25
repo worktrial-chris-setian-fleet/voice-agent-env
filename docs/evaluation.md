@@ -6,15 +6,15 @@ Two run modes exist: **golden** (static, deterministic, comparable across runs) 
 
 ## Golden suite — `npm run golden`
 
-Runs five fixed scenarios against known accounts with all call outcomes forced to ANSWERED. Every run tests the same tasks in the same order, so results are directly comparable across agent versions, prompt changes, or model swaps.
+Runs six fixed scenarios against known accounts with all call outcomes forced to ANSWERED. Every run tests the same tasks in the same order, so results are directly comparable across agent versions, prompt changes, or model swaps.
 
 ```
 npm run golden
 ```
 
-Exits 0 if all five pass, non-zero otherwise — suitable for CI.
+Exits 0 if all six pass, non-zero otherwise — suitable for CI.
 
-**What the five tasks cover:**
+**What the six tasks cover:**
 
 | # | Type | Field | Company / Contact | Persona | Style |
 |---|------|-------|-------------------|---------|-------|
@@ -23,8 +23,9 @@ Exits 0 if all five pass, non-zero otherwise — suitable for CI.
 | 3 | SIMPLE_LOOKUP | deal_stage | Umbrella Technologies | assertive | direct |
 | 4 | DISAMBIGUATION | account_status | Sarah Johnson → Initech Solutions | professional | direct |
 | 5 | DISAMBIGUATION | last_activity | Sarah Waugh → Soylent Corp | casual | verify |
+| 6 | RESOLVE_THEN_RETRIEVE | contract_value | "Technologies" + account_status=active → Umbrella Technologies | professional | verify |
 
-The five tasks are intentional: they span every queryable field type (numeric, date, string enum, status), both task types, and three of the four caller personas. Running golden after any change to the agent, voice agent, or reward logic tells you immediately whether baseline behaviour held.
+The six tasks are intentional: they span every queryable field type (numeric, date, string enum, status), all three task types, and three of the four caller personas. Running golden after any change to the agent, voice agent, or reward logic tells you immediately whether baseline behaviour held.
 
 ---
 
@@ -49,6 +50,7 @@ Every generated task is a combination of four independently sampled dimensions. 
 ### Type
 - **SIMPLE_LOOKUP** — caller knows the company name; one call, one question is sufficient.
 - **DISAMBIGUATION** — caller only has a contact first name ("Sarah"); the voice agent may return multiple matches and ask for clarification before it can answer.
+- **RESOLVE_THEN_RETRIEVE** — caller has a partial identity plus one or more clues (for example, account status or deal stage) and must identify the correct account before retrieving the final target field.
 
 ### Difficulty
 Controls what name the caller uses in `initiate_call`:
@@ -86,6 +88,11 @@ Frames the goal itself:
 ```
 Each `speak` costs −1. The first `initiate_call` is free; retry dial attempts cost −1. `submit_answer` and `end_call` do not.
 
+On `RESOLVE_THEN_RETRIEVE` tasks, the environment also logs intermediate multistep progress:
+- resolution clues confirmed
+- when the account has been resolved and the environment is waiting on a second caller action
+- whether the target field was actually observed before submit
+
 **Episode summary box** shows the submitted answer vs the target value, outcome (SUCCESS / FAILURE), failure reason if applicable, and total reward for the episode.
 
 **Run summary** (printed after all episodes) shows success rate, average reward, average turns, and a per-task-type breakdown — the key metric for comparing agent versions or prompt changes.
@@ -96,11 +103,14 @@ Each `speak` costs −1. The first `initiate_call` is free; retry dial attempts 
 
 | Event | Delta | When it fires |
 |-------|-------|---------------|
-| `CORRECT_ANSWER` | +10 | `submit_answer` value matches ground truth |
-| `WRONG_ANSWER` | −5 | `submit_answer` value does not match |
+| `CORRECT_ANSWER` | +10 | `submit_answer` field and value both match ground truth |
+| `WRONG_ANSWER` | −5 | `submit_answer` field or value does not match |
 | `CALL_ENDED_NO_ANSWER` | −3 | `end_call` without submitting |
 | `ANSWERING_MACHINE` | −2 | `initiate_call` hits answering machine |
 | `WRONG_NUMBER` | −2 | `initiate_call` hits wrong number |
+| `RESOLUTION_CLUE_CONFIRMED` | +1 | a multistep clue is confirmed for the target account |
+| `TARGET_FIELD_OBSERVED` | +1 | the multistep target field is observed for the target account before submit |
 | `TURN_PENALTY` | −1 | every `speak` and every retry `initiate_call` after the first |
 
 A perfect SIMPLE_LOOKUP episode (one free `initiate_call`, one `speak`, correct `submit_answer`) scores **+9**: +10 −1.
+A perfect single-clue RESOLVE_THEN_RETRIEVE episode scores **+11**: +10 +1 +1 −1.

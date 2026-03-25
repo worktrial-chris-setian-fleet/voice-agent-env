@@ -1,7 +1,8 @@
 import { VoiceAgentEnv } from '../env/environment.js';
 import type { Agent } from '../agent/types.js';
 import type { Task } from '../env/types.js';
-import type { EpisodeResult, FailureReason, CallerAction } from '../env/types.js';
+import type { EpisodeResult, FailureReason, CallerAction, ProgressSnapshot } from '../env/types.js';
+import type { VoiceAgentEvent } from '../voice-agent/types.js';
 import { Logger } from './logger.js';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -14,6 +15,8 @@ export async function runEpisode(
 ): Promise<EpisodeResult> {
   let state = await env.reset(task);
   agent.reset(task);
+  let progress: ProgressSnapshot = env.getProgressSnapshot(task);
+  const voiceAgentEvents: VoiceAgentEvent[] = [];
 
   logger.episodeStart(episodeIndex, task);
 
@@ -23,6 +26,8 @@ export async function runEpisode(
     logger.agentAction(action, displayTurnNumber(callerAction, state.turnCount));
     const result = await env.step(callerAction);
     state = result.state;
+    progress = result.progress;
+    voiceAgentEvents.push(...result.voiceAgentEvents);
 
     logger.stepResult(result);
 
@@ -31,12 +36,17 @@ export async function runEpisode(
 
   // Force end if max turns reached
   if (!state.episodeEnded) {
-    await env.step({ type: 'end_call' });
+    const forcedResult = await env.step({ type: 'end_call' });
+    state = forcedResult.state;
+    progress = forcedResult.progress;
   }
 
   const breakdown = env.getRewardBreakdown();
   const events = breakdown.map(b => b.event);
-  const success = state.submittedAnswer !== null &&
+  const success =
+    state.submittedField !== null &&
+    state.submittedAnswer !== null &&
+    normalizeFieldName(state.submittedField) === normalizeFieldName(task.targetField) &&
     normalizeAnswer(state.submittedAnswer) === normalizeAnswer(task.targetValue);
 
   let failureReason: FailureReason | undefined;
@@ -55,9 +65,12 @@ export async function runEpisode(
     turnCount: state.turnCount,
     success,
     failureReason,
+    submittedField: state.submittedField,
     submittedAnswer: state.submittedAnswer,
     rewardBreakdown: breakdown,
     conversationHistory: state.conversationHistory,
+    progress,
+    voiceAgentEvents,
   };
 
   logger.episodeSummary(episodeResult);
@@ -94,6 +107,14 @@ function toCallerAction(toolName: string, args: Record<string, string>): CallerA
 
 function normalizeAnswer(s: string): string {
   return s.toLowerCase().replace(/[$,_]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeFieldName(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/_+/g, '_');
 }
 
 function displayTurnNumber(action: CallerAction, currentTurnCount: number): number {

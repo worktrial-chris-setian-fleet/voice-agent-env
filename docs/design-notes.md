@@ -43,7 +43,7 @@ The reward signal would then evaluate against a separate oracle record. The most
 
 **Adversarial voice agent (self-play):** Train the voice agent simultaneously with the caller — the voice agent is rewarded for making the caller fail while staying within a "realistic behavior" manifold; the caller is rewarded for succeeding. This co-evolutionary dynamic produces both a harder environment and a more robust caller. The constraint on realism is important: without it, the voice agent converges to gibberish or refusal, which is a degenerate equilibrium.
 
-The `VoiceAgent.handleUtterance(text): Promise<string>` interface is the correct abstraction point for all of these. Swapping in a different voice agent implementation — parameterized, adversarial, or curriculum-controlled — requires no changes to the environment, runner, or caller.
+The `VoiceAgent.handleUtterance(text): Promise<{ text, events }>` interface is the correct abstraction point for all of these. Swapping in a different voice agent implementation — parameterized, adversarial, or curriculum-controlled — requires no changes to the environment, runner, or caller. The returned event trace is environment-only instrumentation; the caller still only sees the text response.
 
 ---
 
@@ -99,9 +99,9 @@ See MVP Decision #3 above — the transport choice and its evolution path are do
 
 ### 8. Text-Based Dialogue (No Voice)
 
-**Current:** `VoiceAgent.handleUtterance()` accepts plain text strings and returns plain text strings. There is no audio I/O — the "voice agent" is voice in concept only.
+**Current:** `VoiceAgent.handleUtterance()` accepts plain text strings and returns caller-facing text plus environment-only trace events. There is no audio I/O — the "voice agent" is voice in concept only.
 
-**Future Evolution:** Wrap the I/O boundary with Whisper STT (audio to text) on the input side and ElevenLabs TTS (text to audio) on the output side. Because `handleUtterance()` is already a string-in/string-out boundary, no voice agent or environment changes are needed — only the entry-point orchestration changes.
+**Future Evolution:** Wrap the I/O boundary with Whisper STT (audio to text) on the input side and ElevenLabs TTS (text to audio) on the output side. Because `handleUtterance()` is already text-in / text-out at the caller boundary, no voice agent or environment changes are needed — only the entry-point orchestration changes.
 
 ---
 

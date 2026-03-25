@@ -49,11 +49,11 @@ for (let i = 0; i < results.length; i++) {
   const rewardStr = `${r.totalReward >= 0 ? '+' : ''}${r.totalReward}`;
   const rewardColor = r.totalReward >= 6 ? chalk.green : r.totalReward >= 2 ? chalk.yellow : chalk.red;
 
-  // Build visible-length string for padding
-  const visibleLine = `  ${label.padEnd(46)}${r.success ? 'PASS' : 'FAIL'}    ${rewardStr.padStart(4)}    ${String(r.turnCount).padStart(3)}`;
+  const col = label.length > 46 ? label.slice(0, 45) + '…' : label.padEnd(46);
+  const visibleLine = `  ${col}${r.success ? 'PASS' : 'FAIL'}    ${rewardStr.padStart(4)}    ${String(r.turnCount).padStart(3)}`;
   const padding = Math.max(0, 70 - visibleLine.length);
 
-  const coloredLine = `  ${label.padEnd(46)}${icon}    ${rewardColor(rewardStr.padStart(4))}    ${String(r.turnCount).padStart(3)}`;
+  const coloredLine = `  ${col}${icon}    ${rewardColor(rewardStr.padStart(4))}    ${String(r.turnCount).padStart(3)}`;
   console.log(chalk.bold.yellow('║') + coloredLine + ' '.repeat(padding) + chalk.bold.yellow('║'));
 }
 

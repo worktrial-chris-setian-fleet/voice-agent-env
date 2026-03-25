@@ -2,9 +2,20 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createCrmMcpPair } from '../mcp/server.js';
 import { VoiceAgent } from '../voice-agent/voice-agent.js';
 import { REWARD, turnPenalty } from './reward.js';
-import type { Task, EpisodeState, StepResult, RewardEvent, CallerAction } from './types.js';
+import type {
+  Task,
+  EpisodeState,
+  StepResult,
+  RewardEvent,
+  CallerAction,
+  ProgressPhase,
+  ProgressSnapshot,
+  ProgressUpdate,
+  ResolutionClue,
+} from './types.js';
 import type { McpPair } from '../mcp/server.js';
 import type { CallState } from '../dialogue/types.js';
+import type { VoiceAgentEvent, VoiceAgentSessionConfig } from '../voice-agent/types.js';
 
 export interface EnvOptions {
   /** Force every initiate_call to ANSWERED — useful for golden/regression runs. */
@@ -29,6 +40,9 @@ export class VoiceAgentEnv {
   private totalReward = 0;
   private penaltyTurnCount = 0;
   private callAttemptCount = 0;
+  private matchedResolutionClues = new Set<string>();
+  private targetFieldObserved = false;
+  private resolvedCompanyName: string | null = null;
 
   constructor(anthropic: Anthropic, options: EnvOptions = {}) {
     this.anthropic = anthropic;
@@ -50,6 +64,9 @@ export class VoiceAgentEnv {
     this.totalReward = 0;
     this.penaltyTurnCount = 0;
     this.callAttemptCount = 0;
+    this.matchedResolutionClues = new Set();
+    this.targetFieldObserved = false;
+    this.resolvedCompanyName = null;
     this.state = {
       task,
       conversationHistory: [],
@@ -57,8 +74,10 @@ export class VoiceAgentEnv {
       callState: 'IDLE',
       turnCount: 0,
       episodeEnded: false,
+      submittedField: null,
       submittedAnswer: null,
     };
+    this.voiceAgent.reset(buildVoiceAgentSessionConfig(task));
     return { ...this.state };
   }
 
@@ -72,6 +91,16 @@ export class VoiceAgentEnv {
     let done = false;
     let newCallState: CallState = this.state.callState;
     const newHistory = [...this.state.conversationHistory];
+    let submittedFieldValue = this.state.submittedField;
+    let submittedAnswer = this.state.submittedAnswer;
+    let voiceAgentEvents: VoiceAgentEvent[] = [];
+    const previousPhase = this.getProgressPhase(this.state.task);
+    let progressUpdate: ProgressUpdate = {
+      newlyConfirmedClues: [],
+      targetFieldObservedThisTurn: false,
+      phaseChangedTo: null,
+      resolvedCompanyNameThisTurn: null,
+    };
 
     const addReward = (event: RewardEvent, amount: number) => {
       rewardEvents.push(event);
@@ -95,7 +124,7 @@ export class VoiceAgentEnv {
 
       if (outcome === 'ANSWERED') {
         newCallState = 'CONVERSATION';
-        this.voiceAgent.reset();
+        this.voiceAgent.reset(buildVoiceAgentSessionConfig(this.state.task));
         responseText = 'Call connected.';
         newHistory.push({ speaker: 'VOICE_AGENT', utterance: responseText });
       } else {
@@ -114,13 +143,17 @@ export class VoiceAgentEnv {
 
     } else if (action.type === 'speak') {
       newHistory.push({ speaker: 'CALLER', utterance: action.utterance });
-      responseText = await this.voiceAgent.handleUtterance(action.utterance);
+      const voiceAgentTurn = await this.voiceAgent.handleUtterance(action.utterance);
+      responseText = voiceAgentTurn.text;
+      voiceAgentEvents = voiceAgentTurn.events;
+      progressUpdate = this.applyVoiceAgentEvents(this.state.task, voiceAgentEvents, addReward);
       newHistory.push({ speaker: 'VOICE_AGENT', utterance: responseText });
 
     } else if (action.type === 'submit_answer') {
       done = true;
       newCallState = 'ENDED';
-      this.state.submittedAnswer = action.value;
+      submittedFieldValue = action.field;
+      submittedAnswer = action.value;
       const submittedField = normalizeFieldName(action.field);
       const targetField = normalizeFieldName(this.state.task.targetField);
       const submitted = normalizeAnswer(action.value);
@@ -140,6 +173,8 @@ export class VoiceAgentEnv {
     }
 
     this.totalReward += stepReward;
+    const progress = this.getProgressSnapshot(this.state.task);
+    progressUpdate.phaseChangedTo = progress.phase !== previousPhase ? progress.phase : null;
 
     this.state = {
       ...this.state,
@@ -148,13 +183,104 @@ export class VoiceAgentEnv {
       callState: newCallState,
       turnCount: consumesTurn ? this.state.turnCount + 1 : this.state.turnCount,
       episodeEnded: done,
+      submittedField: submittedFieldValue,
+      submittedAnswer,
     };
 
-    return { state: { ...this.state }, reward: stepReward, done, rewardEvents };
+    return {
+      state: { ...this.state },
+      reward: stepReward,
+      done,
+      rewardEvents,
+      voiceAgentEvents,
+      progress,
+      progressUpdate,
+    };
   }
 
   getRewardBreakdown() { return [...this.rewardBreakdown]; }
   getTotalReward() { return this.totalReward; }
+  getProgressSnapshot(task: Task): ProgressSnapshot {
+    return {
+      phase: this.getProgressPhase(task),
+      resolutionCluesMatched: this.matchedResolutionClues.size,
+      totalResolutionClues: task.resolutionClues?.length ?? 0,
+      targetFieldObserved: this.targetFieldObserved,
+      resolvedCompanyName: this.resolvedCompanyName,
+    };
+  }
+
+  private applyVoiceAgentEvents(
+    task: Task,
+    voiceAgentEvents: VoiceAgentEvent[],
+    addReward: (event: RewardEvent, amount: number) => void
+  ): ProgressUpdate {
+    const progressUpdate: ProgressUpdate = {
+      newlyConfirmedClues: [],
+      targetFieldObservedThisTurn: false,
+      phaseChangedTo: null,
+      resolvedCompanyNameThisTurn: null,
+    };
+
+    if (task.type !== 'RESOLVE_THEN_RETRIEVE' || !task.resolutionClues || task.resolutionClues.length === 0) {
+      return progressUpdate;
+    }
+
+    for (const clue of task.resolutionClues) {
+      const clueKey = toClueKey(clue);
+      if (this.matchedResolutionClues.has(clueKey)) continue;
+
+      const matchingEvent = voiceAgentEvents.find((event): event is Extract<VoiceAgentEvent, { type: 'field_retrieved' }> =>
+        event.type === 'field_retrieved' &&
+        event.accountId === task.targetAccountId &&
+        normalizeFieldName(event.field) === normalizeFieldName(clue.field) &&
+        answersMatch(normalizeAnswer(event.value), normalizeAnswer(clue.value))
+      );
+
+      if (matchingEvent) {
+        this.matchedResolutionClues.add(clueKey);
+        progressUpdate.newlyConfirmedClues.push(clue.label);
+        addReward('RESOLUTION_CLUE_CONFIRMED', REWARD.RESOLUTION_CLUE_CONFIRMED);
+
+        if (
+          this.matchedResolutionClues.size === task.resolutionClues.length &&
+          this.resolvedCompanyName === null
+        ) {
+          this.resolvedCompanyName = matchingEvent.companyName;
+          progressUpdate.resolvedCompanyNameThisTurn = matchingEvent.companyName;
+        }
+      }
+    }
+
+    if (!this.targetFieldObserved) {
+      const observedTargetField = voiceAgentEvents.some((event) =>
+        event.type === 'field_retrieved' &&
+        event.accountId === task.targetAccountId &&
+        normalizeFieldName(event.field) === normalizeFieldName(task.targetField)
+      );
+
+      if (observedTargetField) {
+        this.targetFieldObserved = true;
+        progressUpdate.targetFieldObservedThisTurn = true;
+        addReward('TARGET_FIELD_OBSERVED', REWARD.TARGET_FIELD_OBSERVED);
+      }
+    }
+
+    return progressUpdate;
+  }
+
+  private getProgressPhase(task: Task): ProgressPhase {
+    if (!task.resolutionClues || task.resolutionClues.length === 0) {
+      return 'DIRECT';
+    }
+    if (this.targetFieldObserved) {
+      return 'RETRIEVED';
+    }
+    if (this.matchedResolutionClues.size >= task.resolutionClues.length) {
+      return 'AWAITING_FOLLOW_UP';
+    }
+    return 'RESOLVING';
+  }
 }
 
 function normalizeAnswer(s: string): string {
@@ -176,4 +302,23 @@ function answersMatch(a: string, b: string): boolean {
   const na = Number(a), nb = Number(b);
   if (!isNaN(na) && !isNaN(nb) && a.trim() !== '' && b.trim() !== '') return Math.abs(na - nb) < 0.01;
   return false;
+}
+
+function toClueKey(clue: ResolutionClue): string {
+  return `${normalizeFieldName(clue.field)}::${normalizeAnswer(clue.value)}`;
+}
+
+function buildVoiceAgentSessionConfig(task: Task): VoiceAgentSessionConfig {
+  if (task.type !== 'RESOLVE_THEN_RETRIEVE' || !task.resolutionClues || task.resolutionClues.length === 0) {
+    return { mode: 'default' };
+  }
+
+  return {
+    mode: 'resolve_then_retrieve',
+    resolutionClues: task.resolutionClues.map(clue => ({
+      field: clue.field,
+      value: clue.value,
+      label: clue.label,
+    })),
+  };
 }

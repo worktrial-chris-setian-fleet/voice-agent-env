@@ -8,6 +8,7 @@ import type { Task } from './types.js';
  *  - All tasks use difficulty 'easy' (exact names) so results are stable.
  *  - Each task targets a different field to catch field-specific regressions.
  *  - Persona and style vary across tasks to exercise the LLM caller's range.
+ *  - Includes one deterministic multistep resolve-then-retrieve scenario.
  *  - Run with `npm run golden` (forces ANSWERED so there are no random failures).
  */
 function buildGoldenTasks(): Task[] {
@@ -77,6 +78,26 @@ function buildGoldenTasks(): Task[] {
       ambiguousName: 'Sarah',
       difficulty: 'easy',
       callerPersona: 'casual',
+      queryStyle: 'verify',
+    },
+
+    // ── 6. RESOLVE_THEN_RETRIEVE — resolve "Technologies" by status, then retrieve ──
+    {
+      type: 'RESOLVE_THEN_RETRIEVE',
+      description: 'Verify the contract value for the account matching "Technologies" with account status "active". First identify the correct account, then confirm the contract value. Be concise and professional.',
+      targetAccountId: umbrella.id,
+      targetField: 'contract_value',
+      targetValue: getFieldValue(umbrella, 'contract_value'),
+      callTarget: 'Technologies',
+      resolutionClues: [
+        {
+          field: 'account_status',
+          value: getFieldValue(umbrella, 'account_status'),
+          label: 'account status = active',
+        },
+      ],
+      difficulty: 'easy',
+      callerPersona: 'professional',
       queryStyle: 'verify',
     },
   ];
