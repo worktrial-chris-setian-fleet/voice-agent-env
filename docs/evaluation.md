@@ -84,7 +84,7 @@ Frames the goal itself:
   VOICE AGENT: The contract renewal date is 2026-09-15.
   Reward: -1 [TURN_PENALTY]
 ```
-Each `speak` costs −1. `initiate_call` also costs −1. `submit_answer` and `end_call` do not.
+Each `speak` costs −1. The first `initiate_call` is free; retry dial attempts cost −1. `submit_answer` and `end_call` do not.
 
 **Episode summary box** shows the submitted answer vs the target value, outcome (SUCCESS / FAILURE), failure reason if applicable, and total reward for the episode.
 
@@ -101,6 +101,6 @@ Each `speak` costs −1. `initiate_call` also costs −1. `submit_answer` and `e
 | `CALL_ENDED_NO_ANSWER` | −3 | `end_call` without submitting |
 | `ANSWERING_MACHINE` | −2 | `initiate_call` hits answering machine |
 | `WRONG_NUMBER` | −2 | `initiate_call` hits wrong number |
-| `TURN_PENALTY` | −1 | every `initiate_call` or `speak` |
+| `TURN_PENALTY` | −1 | every `speak` and every retry `initiate_call` after the first |
 
-A perfect SIMPLE_LOOKUP episode (one `initiate_call`, one `speak`, correct `submit_answer`) scores **+8**: +10 −1 −1.
+A perfect SIMPLE_LOOKUP episode (one free `initiate_call`, one `speak`, correct `submit_answer`) scores **+9**: +10 −1.

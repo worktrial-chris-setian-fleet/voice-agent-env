@@ -19,9 +19,8 @@ export async function runEpisode(
 
   while (!state.episodeEnded && state.turnCount < 20) {
     const action = await agent.act(state);
-    logger.agentAction(action, state.turnCount + 1);
-
     const callerAction = toCallerAction(action.toolName, action.arguments);
+    logger.agentAction(action, displayTurnNumber(callerAction, state.turnCount));
     const result = await env.step(callerAction);
     state = result.state;
 
@@ -95,4 +94,11 @@ function toCallerAction(toolName: string, args: Record<string, string>): CallerA
 
 function normalizeAnswer(s: string): string {
   return s.toLowerCase().replace(/[$,_]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function displayTurnNumber(action: CallerAction, currentTurnCount: number): number {
+  if (action.type === 'initiate_call' || action.type === 'speak') {
+    return currentTurnCount + 1;
+  }
+  return currentTurnCount;
 }

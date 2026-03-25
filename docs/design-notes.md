@@ -133,7 +133,7 @@ See MVP Decision #3 above — the transport choice and its evolution path are do
 
 ### Where Agents Succeed
 
-**SIMPLE_LOOKUP tasks with exact company name matches** are the easiest scenario. The call connects (80% probability), the voice agent resolves the account unambiguously and returns the field value in a single response, and the caller submits the answer. Typical reward: +8 (+10 correct answer, -2 turn penalties for initiate_call and speak).
+**SIMPLE_LOOKUP tasks with exact company name matches** are the easiest scenario. The call connects (80% probability), the voice agent resolves the account unambiguously and returns the field value in a single response, and the caller submits the answer. Typical reward: +9 (+10 correct answer, -1 for the single speak turn; the first dial is free).
 
 **DISAMBIGUATION tasks** that provide the contact's full name are also reliably solved. The caller speaks the full name ("Sarah Chen"), the voice agent calls `search_contacts("Sarah Chen")` which returns a single match, and it answers immediately. This requires only one speak turn — same efficiency as SIMPLE_LOOKUP.
 

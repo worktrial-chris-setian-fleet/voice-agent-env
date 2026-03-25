@@ -28,6 +28,7 @@ export class VoiceAgentEnv {
   private rewardBreakdown: { event: RewardEvent; amount: number }[] = [];
   private totalReward = 0;
   private penaltyTurnCount = 0;
+  private callAttemptCount = 0;
 
   constructor(anthropic: Anthropic, options: EnvOptions = {}) {
     this.anthropic = anthropic;
@@ -48,6 +49,7 @@ export class VoiceAgentEnv {
     this.rewardBreakdown = [];
     this.totalReward = 0;
     this.penaltyTurnCount = 0;
+    this.callAttemptCount = 0;
     this.state = {
       task,
       conversationHistory: [],
@@ -77,9 +79,17 @@ export class VoiceAgentEnv {
       this.rewardBreakdown.push({ event, amount });
     };
 
-    if (action.type === 'initiate_call') {
+    const isFirstDialAttempt = action.type === 'initiate_call' && this.callAttemptCount === 0;
+    const consumesTurn = action.type === 'initiate_call' || action.type === 'speak';
+    const incursTurnPenalty = action.type === 'speak' || (action.type === 'initiate_call' && !isFirstDialAttempt);
+
+    if (incursTurnPenalty) {
       this.penaltyTurnCount++;
       addReward('TURN_PENALTY', turnPenalty(this.penaltyTurnCount));
+    }
+
+    if (action.type === 'initiate_call') {
+      this.callAttemptCount++;
       const outcome = this.forceAnswered ? 'ANSWERED' : pickCallOutcome();
       newHistory.push({ speaker: 'CALLER', utterance: `[dials ${action.target}]` });
 
@@ -103,8 +113,6 @@ export class VoiceAgentEnv {
       }
 
     } else if (action.type === 'speak') {
-      this.penaltyTurnCount++;
-      addReward('TURN_PENALTY', turnPenalty(this.penaltyTurnCount));
       newHistory.push({ speaker: 'CALLER', utterance: action.utterance });
       responseText = await this.voiceAgent.handleUtterance(action.utterance);
       newHistory.push({ speaker: 'VOICE_AGENT', utterance: responseText });
@@ -113,9 +121,11 @@ export class VoiceAgentEnv {
       done = true;
       newCallState = 'ENDED';
       this.state.submittedAnswer = action.value;
+      const submittedField = normalizeFieldName(action.field);
+      const targetField = normalizeFieldName(this.state.task.targetField);
       const submitted = normalizeAnswer(action.value);
       const target = normalizeAnswer(this.state.task.targetValue);
-      if (answersMatch(submitted, target)) {
+      if (submittedField === targetField && answersMatch(submitted, target)) {
         addReward('CORRECT_ANSWER', REWARD.CORRECT_ANSWER);
       } else {
         addReward('WRONG_ANSWER', REWARD.WRONG_ANSWER);
@@ -136,7 +146,7 @@ export class VoiceAgentEnv {
       conversationHistory: newHistory,
       lastResponse: responseText,
       callState: newCallState,
-      turnCount: action.type === 'speak' ? this.state.turnCount + 1 : this.state.turnCount,
+      turnCount: consumesTurn ? this.state.turnCount + 1 : this.state.turnCount,
       episodeEnded: done,
     };
 
@@ -149,6 +159,14 @@ export class VoiceAgentEnv {
 
 function normalizeAnswer(s: string): string {
   return s.toLowerCase().replace(/[$,_]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeFieldName(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/_+/g, '_');
 }
 
 function answersMatch(a: string, b: string): boolean {

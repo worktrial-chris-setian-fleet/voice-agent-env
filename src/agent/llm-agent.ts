@@ -51,12 +51,13 @@ const SYSTEM_PROMPT_TEMPLATE = `You are calling a CRM helpline to retrieve a spe
 You speak with a voice agent who has access to the CRM database.
 
 TASK: {TASK_DESCRIPTION}
+EXACT FIELD TOKEN TO SUBMIT: {TARGET_FIELD}
 
 INSTRUCTIONS:
 - Start by calling initiate_call with the company name or contact name from your task.
 - If the call fails (answering machine, wrong number), retry with initiate_call.
 - Use speak to ask questions in natural language. Be direct — ask for the specific field immediately.
-- When you have the answer, call submit_answer with the exact field name and the value you received.
+- When you have the answer, call submit_answer with field="{TARGET_FIELD}" exactly. Do not invent variants or aliases.
 - Use end_call only if you truly cannot get the information.
 - Each speak turn costs 1 point, so be efficient.`;
 
@@ -75,7 +76,9 @@ export class LLMAgent implements Agent {
     this.messageHistory = [];
     this.pendingToolUseId = null;
     this.pendingToolResultIndex = null;
-    this.systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{TASK_DESCRIPTION}', task.description);
+    this.systemPrompt = SYSTEM_PROMPT_TEMPLATE
+      .replace('{TASK_DESCRIPTION}', task.description)
+      .replaceAll('{TARGET_FIELD}', task.targetField);
   }
 
   async act(state: EpisodeState): Promise<AgentAction> {

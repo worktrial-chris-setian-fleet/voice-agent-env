@@ -52,7 +52,7 @@ The updated prompt becomes the policy for the next generation. The previous prom
 Three evaluation modes, each serving a distinct purpose:
 
 **Golden suite (regression anchor)**
-`npm run golden` runs the same 5 fixed scenarios every generation. This is the floor — the policy must not get worse on known scenarios. If golden pass rate drops, the update is rejected. All 5 tasks are solvable in 2 turns; a healthy policy should hold 5/5 at +8 throughout training.
+`npm run golden` runs the same 5 fixed scenarios every generation. This is the floor — the policy must not get worse on known scenarios. If golden pass rate drops, the update is rejected. All 5 tasks are solvable in 2 turns; a healthy policy should hold 5/5 at +9 throughout training.
 
 **Stress suite (improvement signal)**
 `npm run stress` runs 8 adversarial scenarios designed to expose known failure modes. Unlike the golden suite, some failures here are expected — the metric is reward score, not pass/fail. The suite targets four failure modes, two scenarios each:
@@ -69,6 +69,14 @@ Baseline (first run): 6/8 passed, avg reward +4.3. A prompt improvement should m
 
 **Generation metrics**
 After each training generation, record: success rate, average return, average turns, and per-task-type breakdown. Plot these across generations to produce the learning curve. A meaningful improvement is a consistent rise in success rate across at least two consecutive generations, not a single lucky run.
+
+---
+
+### How pass/fail and reward relate
+
+Pass/fail is purely answer correctness: an episode passes if a value was submitted and it matches the target after normalization. It does not account for how many turns it took or how much reward was spent getting there. An episode that passes at +2 (correct answer after 6 expensive turns) and one that passes at +8 (correct answer after 2 turns) look identical in pass/fail reporting.
+
+**Reward is the right signal to optimize.** Pass/fail is a coarse proxy that misses the turn-efficiency dimension the penalty structure is designed to surface. Use pass rate as a sanity check (is the policy staying above baseline?), but track average return as the primary learning signal. A prompt update that holds pass rate flat while improving average return is a genuine improvement — it means the agent is getting correct answers more efficiently.
 
 ---
 

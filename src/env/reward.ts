@@ -6,12 +6,12 @@ export const REWARD: Record<RewardEvent, number> = {
   CALL_ENDED_NO_ANSWER: -3,
   ANSWERING_MACHINE: -2,
   WRONG_NUMBER: -2,
-  TURN_PENALTY: -1, // base value; actual penalty scales with turnPenalty()
+  TURN_PENALTY: -1, // base value; applied to spoken turns and retry dial attempts
 };
 
 /**
- * Escalating turn penalty. Turns 1–4 cost -1, turns 5–7 cost -2, turns 8+ cost -3.
- * @param penaltyTurnNumber 1-indexed count of all penalized actions (initiate_call + speak).
+ * Escalating turn penalty. Penalized turns 1–4 cost -1, 5–7 cost -2, 8+ cost -3.
+ * @param penaltyTurnNumber 1-indexed count of penalized actions. The first dial attempt is free.
  */
 export function turnPenalty(penaltyTurnNumber: number): number {
   if (penaltyTurnNumber <= 4) return -1;

@@ -3,7 +3,10 @@ import type { AgentAction } from '../agent/types.js';
 import type { StepResult, EpisodeResult, Task } from '../env/types.js';
 
 export class Logger {
+  private lastLoggedTurn: number | null = null;
+
   episodeStart(index: number, task: Task): void {
+    this.lastLoggedTurn = null;
     console.log('');
     console.log(chalk.bold.white('═'.repeat(60)));
     console.log(chalk.bold.white(`  EPISODE ${index + 1} — ${task.type}`));
@@ -14,6 +17,11 @@ export class Logger {
   }
 
   agentAction(action: AgentAction, turn: number): void {
+    if (this.lastLoggedTurn !== null && turn !== this.lastLoggedTurn) {
+      console.log(chalk.dim('  ' + '·'.repeat(56)));
+    }
+    this.lastLoggedTurn = turn;
+
     const argsStr = Object.entries(action.arguments)
       .map(([k, v]) => `${k}="${v}"`)
       .join(', ');

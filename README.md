@@ -41,9 +41,9 @@ Tasks are also varied across **difficulty** (exact name vs. partial), **caller p
 | Wrong answer | −5 |
 | End call without answer | −3 |
 | Answering machine / wrong number | −2 |
-| Each turn (speak or dial) | −1 |
+| Each `speak`, and each retry dial after the first | −1 |
 
-A perfect episode — one dial, one question, correct answer — scores **+8**.
+A perfect episode — one free dial, one question, correct answer — scores **+9**.
 
 ---
 
@@ -54,7 +54,7 @@ The −1/turn penalty creates constant pressure toward efficiency. The interesti
 **Where agents get stuck:**
 - **Answering machine without retry** — treating a failed call as the end of the episode rather than retrying, leaving reward on the table
 - **Disambiguation loops** — asking for information before resolving which account is being discussed, causing the voice agent to re-prompt and burning turns
-- **Premature submission** — submitting a low-confidence answer to avoid the turn penalty, trading a likely +8 for a possible −6
+- **Premature submission** — submitting a low-confidence answer to avoid another turn penalty, trading a likely +9 for a possible −6
 
 Detailed analysis in [`docs/design-notes.md → Reward Landscape`](docs/design-notes.md#reward-landscape).
 

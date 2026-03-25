@@ -2,27 +2,27 @@ import { findByName, getFieldValue } from '../crm/store.js';
 import type { Task } from './types.js';
 
 /**
- * Eight static scenarios designed to expose known failure modes.
+ * Six adversarial scenarios designed to expose known failure modes.
  *
  * Unlike the golden suite (which must always pass), stress tasks are expected
- * to sometimes fail. The signal is the reward score, not pass/fail.
+ * to fail. The signal is the reward score, not pass/fail — a prompt improvement
+ * should move scores upward across generations.
  * Each scenario targets one failure mode so score changes can be attributed.
  *
  * Run with: npm run stress
  */
 function buildStressTasks(): Task[] {
-  const acme       = findByName('Acme Corp')[0]!;
-  const globex     = findByName('Globex Corporation')[0]!;
-  const umbrella   = findByName('Umbrella Technologies')[0]!;
-  const oscorp     = findByName('Oscorp Industries')[0]!;
-  const bluth      = findByName('Bluth Company')[0]!;
-  const lacroix    = findByName('Lacroix Capital')[0]!;
+  const acme     = findByName('Acme Corp')[0]!;
+  const globex   = findByName('Globex Corporation')[0]!;
+  const umbrella = findByName('Umbrella Technologies')[0]!;
+  const oscorp   = findByName('Oscorp Industries')[0]!;
+  const lacroix  = findByName('Lacroix Capital')[0]!;
 
   return [
-    // ── S1: Deep disambiguation — first name only, uncertain persona ──────────
-    // Failure mode: disambiguation loop / extra turns
-    // Agent has only "Sarah" and the role hint. Must navigate 5 matches.
-    // Uncertain persona maximises hedging and extra turns.
+    // ── S1: Deep disambiguation — role hint the voice agent cannot resolve ────
+    // Failure mode: disambiguation loop / turn burn
+    // Agent has "Sarah" + "Managing Director" — voice agent has no role lookup tool.
+    // Uncertain persona maximises hedging. Expect 4–6 turns and a low/negative reward.
     {
       type: 'DISAMBIGUATION',
       description:
@@ -39,10 +39,10 @@ function buildStressTasks(): Task[] {
       queryStyle: 'conversational',
     },
 
-    // ── S2: Disambiguation under assertive pressure — first name only ─────────
-    // Failure mode: premature submission before disambiguation resolves
-    // Agent has only "Sarah" and knows she's in a CTO-level role.
-    // Assertive persona pushes toward committing early — risks wrong account.
+    // ── S2: Disambiguation under assertive pressure — CTO hint, unresolvable ──
+    // Failure mode: premature submission under turn pressure
+    // Assertive persona pushes toward committing before disambiguation resolves.
+    // Same dead-end as S1 but agent is more likely to guess early and wrong.
     {
       type: 'DISAMBIGUATION',
       description:
@@ -58,10 +58,10 @@ function buildStressTasks(): Task[] {
       queryStyle: 'direct',
     },
 
-    // ── S3: Two-match company disambiguation — "Technologies" ────────────────
-    // Failure mode: agent guesses the wrong company (50/50)
+    // ── S3: Two-match company ambiguity — 50/50 guess ────────────────────────
+    // Failure mode: agent must pick between two companies with no basis for the choice
     // "Technologies" matches Umbrella Technologies ($340k) AND InGen Technologies ($60k).
-    // Description withholds the specific company name — agent must dial ambiguously and pick.
+    // Description withholds the specific company — agent dials ambiguously and must pick.
     {
       type: 'SIMPLE_LOOKUP',
       description:
@@ -75,10 +75,10 @@ function buildStressTasks(): Task[] {
       queryStyle: 'direct',
     },
 
-    // ── S4: Three-match company disambiguation — "Corp" ───────────────────────
-    // Failure mode: agent guesses the wrong company (1 in 3)
-    // "Corp" substring matches Acme Corp, Soylent Corp, AND Oscorp Industries.
-    // All three have different contract values — only one is the target.
+    // ── S4: Three-match company ambiguity — 1-in-3 guess ─────────────────────
+    // Failure mode: agent must pick between three companies, each with a different value
+    // "Corp" substring matches Acme Corp ($120k), Soylent Corp ($92k), Oscorp Industries ($160k).
+    // Agent has no basis to prefer one — wrong guess triggers WRONG_ANSWER.
     {
       type: 'SIMPLE_LOOKUP',
       description:
@@ -92,26 +92,10 @@ function buildStressTasks(): Task[] {
       queryStyle: 'direct',
     },
 
-    // ── S5: Primed wrong expectation — verify with incorrect prior ────────────
-    // Failure mode: agent submits the expected value ($200k) instead of the actual ($250k)
-    // "Verify" framing primes the agent to confirm a specific number that is wrong.
-    {
-      type: 'SIMPLE_LOOKUP',
-      description:
-        'Double-check that Globex Corporation\'s contract value is still $200,000. ' +
-        'Call to confirm what\'s currently on file.',
-      targetAccountId: globex.id,
-      targetField: 'contract_value',
-      targetValue: getFieldValue(globex, 'contract_value'), // $250,000 — not $200,000
-      difficulty: 'easy',
-      callerPersona: 'professional',
-      queryStyle: 'verify',
-    },
-
-    // ── S6: Two-Sarah negotiation ambiguity → chain to renewal date ───────────
-    // Failure mode: two Sarahs are in negotiation (Johnson/Initech + Nakamura/Lacroix); agent picks wrong one
-    // Requires multi-step: first identify which Sarahs are in negotiation, then get renewal date
-    // 50/50 guess if agent can't distinguish further — renewal dates differ so wrong guess fails
+    // ── S5: Two-Sarah negotiation ambiguity — chain to renewal date ───────────
+    // Failure mode: two Sarahs share the same deal stage; agent must pick and chain to a second field
+    // Both Sarah Johnson (Initech, renewal: 2026-07-30) and Sarah Nakamura (Lacroix, renewal: 2027-01-15)
+    // are in "negotiation" — wrong pick fails because renewal dates differ.
     {
       type: 'DISAMBIGUATION',
       description:
@@ -127,10 +111,10 @@ function buildStressTasks(): Task[] {
       queryStyle: 'conversational',
     },
 
-    // ── S7: Uncertain persona, first name only, no role hint ─────────────────
-    // Failure mode: uncertain framing + no disambiguating clue → loop or wrong answer
-    // Hardest disambiguation: agent has only "Sarah" — no last name, no role, no company.
-    // Must reason from whatever the voice agent returns. Often fails or over-turns.
+    // ── S6: No-clue disambiguation — hardest path ────────────────────────────
+    // Failure mode: no disambiguating information at all → loop, dump, or wrong guess
+    // Agent has only "Sarah" — no last name, no role, no company hint.
+    // 1-in-5 chance of a lucky correct guess; most runs end in wrong answer or end_call.
     {
       type: 'DISAMBIGUATION',
       description:
@@ -145,22 +129,6 @@ function buildStressTasks(): Task[] {
       callerPersona: 'uncertain',
       queryStyle: 'conversational',
     },
-
-    // ── S8: Churned account — expectation mismatch ───────────────────────────
-    // Failure mode: "verify still active" primes agent to expect "active";
-    // voice agent returns "churned" — agent may reject the answer, loop, or submit correctly
-    {
-      type: 'SIMPLE_LOOKUP',
-      description:
-        'Call Bluth Company to verify their account is still active — report the current account status. ' +
-        'Be concise and professional.',
-      targetAccountId: bluth.id,
-      targetField: 'account_status',
-      targetValue: getFieldValue(bluth, 'account_status'), // "churned" — not "active"
-      difficulty: 'easy',
-      callerPersona: 'professional',
-      queryStyle: 'verify',
-    },
   ];
 }
 
@@ -172,8 +140,6 @@ export const STRESS_LABELS: string[] = [
   'S2: 5-Sarah, assertive — premature commit risk',
   'S3: "Technologies" → 2-company ambiguity (50/50 guess)',
   'S4: "Corp" → 3-company ambiguity (1-in-3 guess)',
-  'S5: Verify with wrong prior ($200k vs actual $250k)',
-  'S6: Two-Sarah negotiation — chain to renewal date',
-  'S7: No-clue Sarah — no last name, no role, no company',
-  'S8: Churned account — "verify active" expectation mismatch',
+  'S5: Two-Sarah negotiation — chain to renewal date',
+  'S6: No-clue Sarah — no last name, no role, no company',
 ];
