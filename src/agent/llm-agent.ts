@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Agent, AgentAction } from './types.js';
 import type { CallerBrief, EpisodeObservation } from '../env/types.js';
-
+import { renderPolicyPrompt } from '../policy/default-policy.js';
 const CALLER_TOOLS: Anthropic.Tool[] = [
   {
     name: 'initiate_call',
@@ -47,38 +47,32 @@ const CALLER_TOOLS: Anthropic.Tool[] = [
   },
 ];
 
-const SYSTEM_PROMPT_TEMPLATE = `You are calling a CRM helpline to retrieve a specific piece of information.
-You speak with a voice agent who has access to the CRM database.
-
-TASK: {TASK_DESCRIPTION}
-EXACT FIELD TOKEN TO SUBMIT: {TARGET_FIELD}
-
-INSTRUCTIONS:
-- Start by calling initiate_call with the company name or contact name from your task.
-- If the call fails (answering machine, wrong number), retry with initiate_call.
-- Use speak to ask questions in natural language. If the task gives only a partial identity plus a clue, first identify the correct account and then ask for the final field.
-- When you have the answer, call submit_answer with field="{TARGET_FIELD}" exactly. Do not invent variants or aliases.
-- Use end_call only if you truly cannot get the information.
-- Each speak turn costs 1 point, so be efficient.`;
+export interface LLMAgentPolicy {
+  policyId: string;
+  prompt: string;
+}
 
 export class LLMAgent implements Agent {
   private anthropic: Anthropic;
   private messageHistory: Anthropic.MessageParam[] = [];
   private systemPrompt = '';
+  private policy: LLMAgentPolicy;
   private pendingToolUseId: string | null = null;
   private pendingToolResultIndex: number | null = null;
 
-  constructor(anthropic: Anthropic) {
+  constructor(anthropic: Anthropic, policy: LLMAgentPolicy) {
     this.anthropic = anthropic;
+    this.policy = policy;
   }
 
   reset(brief: CallerBrief): void {
     this.messageHistory = [];
     this.pendingToolUseId = null;
     this.pendingToolResultIndex = null;
-    this.systemPrompt = SYSTEM_PROMPT_TEMPLATE
-      .replace('{TASK_DESCRIPTION}', brief.instructions)
-      .replaceAll('{TARGET_FIELD}', brief.targetField);
+    this.systemPrompt = renderPolicyPrompt(this.policy.prompt, {
+      taskDescription: brief.instructions,
+      targetField: brief.targetField,
+    });
   }
 
   async act(observation: EpisodeObservation): Promise<AgentAction> {
