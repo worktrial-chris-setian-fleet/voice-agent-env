@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice Agent Experiment Viewer</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar card">
+        <div class="sidebar-head">
+          <h1>Experiment Viewer</h1>
+          <p>Run explorer and trajectory replay</p>
+        </div>
+
+        <label class="field-label" for="experiment-filter">Experiment</label>
+        <select id="experiment-filter"></select>
+
+        <label class="field-label" for="run-type-filter">Run Type</label>
+        <select id="run-type-filter">
+          <option value="">All</option>
+          <option value="golden">golden</option>
+          <option value="stress">stress</option>
+          <option value="random">random</option>
+          <option value="train">train</option>
+        </select>
+
+        <label class="checkbox-row">
+          <input id="auto-refresh" type="checkbox" checked />
+          Auto refresh runs
+        </label>
+
+        <div id="run-count" class="subtle"></div>
+        <div id="runs" class="runs"></div>
+      </aside>
+
+      <main class="main">
+        <section class="card topbar">
+          <div>
+            <h2 id="run-title">Select a run</h2>
+            <p id="run-subtitle" class="subtle">No run selected</p>
+          </div>
+          <div class="right-meta">
+            <div id="refresh-indicator" class="subtle">Waiting…</div>
+          </div>
+        </section>
+
+        <section class="metrics-grid" id="metrics-grid"></section>
+
+        <section class="card chart-card">
+          <div class="chart-header">
+            <h3>Episode Reward Trajectory</h3>
+            <p class="subtle">Bars = episode reward, line = cumulative average</p>
+          </div>
+          <svg id="trajectory-chart" viewBox="0 0 920 250" preserveAspectRatio="none"></svg>
+        </section>
+
+        <section class="card episode-panel">
+          <div class="episode-header">
+            <h3>Conversation Replay</h3>
+            <select id="episode-select"></select>
+          </div>
+          <div id="episode-meta" class="chips"></div>
+          <div id="tool-meta" class="chips"></div>
+          <div id="conversation" class="conversation"></div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

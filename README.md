@@ -20,9 +20,12 @@ npm install
 npm start                  # 5 random episodes
 npm start -- --episodes 10 # custom count
 npm run golden             # 6 fixed regression scenarios
+npm run viewer             # browser viewer for run artifacts
 ```
 
 `npm run golden` exits non-zero if any scenario fails — use it after changes to verify nothing regressed.
+
+Open `http://localhost:4173` after starting the viewer.
 
 ## Task types
 

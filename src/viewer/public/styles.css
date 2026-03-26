@@ -1,0 +1,289 @@
+:root {
+  --bg: #f3f2ec;
+  --panel: #fffdf8;
+  --ink: #202124;
+  --muted: #5f6368;
+  --accent: #1768ac;
+  --accent-soft: #d7e8f8;
+  --good: #106b31;
+  --bad: #9a2222;
+  --border: #ddd9ce;
+  --caller: #eaf4ff;
+  --voice: #fff3df;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at 20% 0%, #f8f3e7 0%, var(--bg) 38%, #ece8de 100%);
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  gap: 16px;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.sidebar {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-head h1 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.sidebar-head p {
+  margin: 2px 0 0;
+}
+
+.field-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+select {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 0.94rem;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.subtle {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.runs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.run-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px;
+  cursor: pointer;
+  background: #fff;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.run-item:hover {
+  transform: translateY(-1px);
+  border-color: #c2bcae;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+
+.run-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.run-item h4 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.run-item p {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.topbar {
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.topbar h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.topbar p {
+  margin: 3px 0 0;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.metric {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.metric .label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+
+.metric .value {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.chart-card {
+  padding: 12px;
+}
+
+.chart-header h3 {
+  margin: 0;
+}
+
+.chart-header p {
+  margin: 2px 0 8px;
+}
+
+#trajectory-chart {
+  width: 100%;
+  height: 250px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.episode-panel {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.episode-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.episode-header h3 {
+  margin: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.chip {
+  border-radius: 999px;
+  font-size: 0.78rem;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.chip.good {
+  background: #e7f8eb;
+  border-color: #b9e2c6;
+  color: var(--good);
+}
+
+.chip.bad {
+  background: #fdeceb;
+  border-color: #f2c3c0;
+  color: var(--bad);
+}
+
+.conversation {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  max-height: 48vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #ffffff;
+}
+
+.message {
+  max-width: 88%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.message.caller {
+  align-self: flex-end;
+  background: var(--caller);
+}
+
+.message.voice {
+  align-self: flex-start;
+  background: var(--voice);
+}
+
+.msg-speaker {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+@media (max-width: 980px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .runs {
+    max-height: 240px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}

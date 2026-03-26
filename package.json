@@ -12,6 +12,7 @@
     "experiment:show": "node --import tsx src/cli/experiment-show.ts",
     "experiment:reset": "node --import tsx src/cli/experiment-reset.ts",
     "policy:show": "node --import tsx src/cli/policy-show.ts",
+    "viewer": "node --import tsx src/viewer/server.ts",
     "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
