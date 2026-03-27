@@ -1,4 +1,4 @@
-import type { CallerBrief, EpisodeResult, TaskType } from '../env/types.js';
+import type { CallerBehaviorMetrics, CallerBrief, EpisodeResult, TaskType } from '../env/types.js';
 
 export type PolicyStatus = 'baseline' | 'candidate' | 'promoted' | 'archived';
 export type ExperimentStatus = 'active' | 'archived';
@@ -81,6 +81,13 @@ export interface MultistepSummary {
   endedAwaitingFollowUpRate: number;
 }
 
+export interface CallerBehaviorSummary {
+  ambiguousTurnCount: number;
+  goodDisambiguationQuestionRate: number;
+  prematureTargetRequestRate: number;
+  redundantClarificationRate: number;
+}
+
 export interface RunSummary {
   runId: string;
   experimentId: string;
@@ -96,6 +103,7 @@ export interface RunSummary {
   noAnswerRate: number;
   taskTypeBreakdown: TaskTypeSummary[];
   multistep: MultistepSummary;
+  callerBehavior: CallerBehaviorSummary;
 }
 
 export interface StoredEpisodeTrajectory {
@@ -120,6 +128,7 @@ export interface StoredEpisodeTrajectory {
   hadInvalidAction: boolean;
   prematureSubmit: boolean;
   resolvedAccountBeforeSubmit: boolean;
+  callerBehaviorMetrics: CallerBehaviorMetrics;
 }
 
 export interface ComparisonMetricDelta {

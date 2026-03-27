@@ -78,6 +78,7 @@ export async function runEpisode(
     progress,
     voiceAgentEvents,
     voiceAgentToolEvents,
+    callerBehaviorMetrics: env.getCallerBehaviorMetrics(),
   };
 
   logger.episodeSummary(episodeResult);

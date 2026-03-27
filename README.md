@@ -20,6 +20,7 @@ npm install
 npm start                  # 5 random episodes
 npm start -- --episodes 10 # custom count
 npm run golden             # 6 fixed regression scenarios
+npm run experiment:loop -- --experiment <experiment-id> --iterations 3 --updater llm # policy experiment quickstart
 npm run viewer             # browser viewer for run artifacts
 ```
 

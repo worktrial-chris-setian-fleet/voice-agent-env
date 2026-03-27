@@ -93,9 +93,16 @@ On `RESOLVE_THEN_RETRIEVE` tasks, the environment also logs intermediate multist
 - when the account has been resolved and the environment is waiting on a second caller action
 - whether the target field was actually observed before submit
 
+On ambiguity-heavy tasks, the runner now also logs **caller-side disambiguation evaluation**:
+- good disambiguation question
+- premature target request
+- redundant clarification
+
+These caller-behavior labels are instrumentation only in the current phase. They are intended to support a future reward shift away from voice-agent-derived intermediate credit.
+
 **Episode summary box** shows the submitted answer vs the target value, outcome (SUCCESS / FAILURE), failure reason if applicable, and total reward for the episode.
 
-**Run summary** (printed after all episodes) shows success rate, average reward, average turns, and a per-task-type breakdown — the key metric for comparing agent versions or prompt changes.
+**Run summary** (printed after all episodes) shows success rate, average reward, average turns, a per-task-type breakdown, multistep progress, and a compact caller-behavior section for ambiguous tasks.
 
 ---
 

@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import type { AgentAction } from '../agent/types.js';
-import type { ProgressPhase, StepResult, EpisodeResult, ScenarioSpec, TaskType } from '../env/types.js';
+import type { CallerBehaviorLabel, ProgressPhase, StepResult, EpisodeResult, ScenarioSpec, TaskType } from '../env/types.js';
 
 export class Logger {
   private lastLoggedTurn: number | null = null;
@@ -32,6 +32,13 @@ export class Logger {
     // Print voice agent response
     console.log(chalk.yellow(`  VOICE AGENT: ${result.observation.lastResponse}`));
 
+    if (result.callerBehaviorEvaluation?.applicable && result.callerBehaviorEvaluation.label) {
+      const detail = result.callerBehaviorEvaluation.reason
+        ? `: ${result.callerBehaviorEvaluation.reason}`
+        : '';
+      console.log(chalk.blue(`  Caller Eval: ${formatCallerBehaviorLabel(result.callerBehaviorEvaluation.label)}${detail}`));
+    }
+
     if (
       result.progressUpdate.newlyConfirmedClues.length > 0 ||
       result.progressUpdate.targetFieldObservedThisTurn ||
@@ -60,8 +67,19 @@ export class Logger {
 
     if (result.reward !== 0 || result.rewardEvents.length > 0) {
       const rewardSign = result.reward >= 0 ? '+' : '';
-      const rewardColor = result.reward >= 0 ? chalk.green : chalk.red;
-      console.log(rewardColor(`  Reward: ${rewardSign}${result.reward} [${result.rewardEvents.join(', ')}]`));
+      const rewardColor = result.reward > 0
+        ? chalk.green
+        : result.reward < 0
+          ? chalk.red
+          : chalk.yellow;
+      const componentMath = result.stepRewardBreakdown
+        .map(({ amount }) => `${amount >= 0 ? '+' : ''}${amount}`)
+        .join(' ');
+      const rewardDetails = result.stepRewardBreakdown
+        .map(({ event, amount }) => `${event}:${amount >= 0 ? '+' : ''}${amount}`)
+        .join(', ');
+      const mathPart = componentMath.length > 0 ? ` (${componentMath} => ${rewardSign}${result.reward})` : '';
+      console.log(rewardColor(`  Reward: ${rewardSign}${result.reward}${mathPart} [${rewardDetails}]`));
     }
   }
 
@@ -106,6 +124,23 @@ export class Logger {
         chalk.bold.white('│')
       );
     }
+    if (result.callerBehaviorMetrics.ambiguousTurns > 0) {
+      console.log(
+        chalk.bold.white('│') +
+        ` Good Qs:      ${result.callerBehaviorMetrics.goodDisambiguationQuestions}/${result.callerBehaviorMetrics.ambiguousTurns}`.padEnd(58) +
+        chalk.bold.white('│')
+      );
+      console.log(
+        chalk.bold.white('│') +
+        ` Premature:    ${result.callerBehaviorMetrics.prematureTargetRequests}`.padEnd(58) +
+        chalk.bold.white('│')
+      );
+      console.log(
+        chalk.bold.white('│') +
+        ` Redundant:    ${result.callerBehaviorMetrics.redundantClarifications}`.padEnd(58) +
+        chalk.bold.white('│')
+      );
+    }
     console.log(chalk.bold.white('│') + ` Outcome:      ${outcomeColor(outcomeLabel)}`.padEnd(58 + (outcomeColor(outcomeLabel).length - outcomeLabel.length)) + chalk.bold.white('│'));
     if (!result.success && result.failureReason) {
       const reason = result.failureReason.replace(/_/g, ' ').toLowerCase();
@@ -132,6 +167,9 @@ export class Logger {
     }
 
     const multistep = results.filter(r => r.spec.brief.type === 'RESOLVE_THEN_RETRIEVE');
+    const ambiguous = results.filter(r =>
+      r.spec.brief.type === 'DISAMBIGUATION' || r.spec.brief.type === 'RESOLVE_THEN_RETRIEVE'
+    );
     const avgResolutionRate = multistep.length > 0
       ? (
           multistep.reduce((sum, r) =>
@@ -149,6 +187,16 @@ export class Logger {
       ? (
           multistep.filter(r => r.progress.phase === 'AWAITING_FOLLOW_UP').length / multistep.length * 100
         ).toFixed(1)
+      : null;
+    const ambiguousTurns = ambiguous.reduce((sum, result) => sum + result.callerBehaviorMetrics.ambiguousTurns, 0);
+    const goodQuestionRate = ambiguousTurns > 0
+      ? (ambiguous.reduce((sum, result) => sum + result.callerBehaviorMetrics.goodDisambiguationQuestions, 0) / ambiguousTurns * 100).toFixed(1)
+      : null;
+    const prematureRate = ambiguousTurns > 0
+      ? (ambiguous.reduce((sum, result) => sum + result.callerBehaviorMetrics.prematureTargetRequests, 0) / ambiguousTurns * 100).toFixed(1)
+      : null;
+    const redundantRate = ambiguousTurns > 0
+      ? (ambiguous.reduce((sum, result) => sum + result.callerBehaviorMetrics.redundantClarifications, 0) / ambiguousTurns * 100).toFixed(1)
       : null;
 
     console.log('');
@@ -177,6 +225,14 @@ export class Logger {
       console.log(chalk.bold.white('║') + ` Ended awaiting follow-up: ${followUpPendingRate}%`.padEnd(58) + chalk.bold.white('║'));
       console.log(chalk.bold.white('║') + ` Target field observed: ${targetObservedRate}%`.padEnd(58) + chalk.bold.white('║'));
     }
+    if (goodQuestionRate !== null && prematureRate !== null && redundantRate !== null) {
+      console.log(chalk.bold.white('╠' + '═'.repeat(58) + '╣'));
+      console.log(chalk.bold.white('║') + chalk.bold.white(' CALLER BEHAVIOR'.padEnd(58)) + chalk.bold.white('║'));
+      console.log(chalk.bold.white('╠' + '═'.repeat(58) + '╣'));
+      console.log(chalk.bold.white('║') + ` Good disambiguation rate: ${goodQuestionRate}%`.padEnd(58) + chalk.bold.white('║'));
+      console.log(chalk.bold.white('║') + ` Premature target rate: ${prematureRate}%`.padEnd(58) + chalk.bold.white('║'));
+      console.log(chalk.bold.white('║') + ` Redundant clarification: ${redundantRate}%`.padEnd(58) + chalk.bold.white('║'));
+    }
     console.log(chalk.bold.white('╚' + '═'.repeat(58) + '╝'));
   }
 }
@@ -191,5 +247,18 @@ function formatPhase(phase: ProgressPhase): string {
       return 'awaiting follow-up';
     case 'RETRIEVED':
       return 'retrieved';
+  }
+}
+
+function formatCallerBehaviorLabel(label: CallerBehaviorLabel): string {
+  switch (label) {
+    case 'GOOD_DISAMBIGUATION_QUESTION':
+      return 'good disambiguation question';
+    case 'PREMATURE_TARGET_REQUEST':
+      return 'premature target request';
+    case 'REDUNDANT_DISAMBIGUATION':
+      return 'redundant clarification';
+    default:
+      return label.toLowerCase();
   }
 }

@@ -126,3 +126,79 @@ test('resolve-then-retrieve progress advances across resolution and follow-up tu
   assert.equal(retrievalStep.progress.resolvedCompanyName, 'Umbrella Technologies');
   assert.equal(retrievalStep.reward, 0);
 });
+
+test('caller-side evaluator marks a useful resolving question as good', async () => {
+  const env = createEnv();
+  const spec = GOLDEN_TASKS.find((task) => task.brief.type === 'RESOLVE_THEN_RETRIEVE');
+  assert.ok(spec);
+
+  await env.reset(spec);
+  await env.step({ type: 'initiate_call', target: spec.callTarget ?? 'Technologies' });
+
+  installStubVoiceAgent(env, [{
+    text: 'I can help narrow that down.',
+    semanticEvents: [],
+    toolEvents: [],
+  }]);
+
+  const result = await env.step({ type: 'speak', utterance: 'Which account has active status?' });
+
+  assert.equal(result.callerBehaviorEvaluation?.label, 'GOOD_DISAMBIGUATION_QUESTION');
+  assert.equal(result.callerBehaviorEvaluation?.reason, 'asked about a distinguishing field: account_status');
+  assert.equal(env.getCallerBehaviorMetrics().goodDisambiguationQuestions, 1);
+  assert.equal(env.getCallerBehaviorMetrics().ambiguousTurns, 1);
+});
+
+test('caller-side evaluator marks a premature target-field request during ambiguity', async () => {
+  const env = createEnv();
+  const spec = GOLDEN_TASKS.find((task) =>
+    task.brief.type === 'DISAMBIGUATION' && task.brief.targetField === 'last_activity'
+  );
+  assert.ok(spec);
+
+  await env.reset(spec);
+  await env.step({ type: 'initiate_call', target: spec.ambiguousName ?? 'Sarah' });
+
+  installStubVoiceAgent(env, [{
+    text: 'Which Sarah do you mean?',
+    semanticEvents: [],
+    toolEvents: [],
+  }]);
+
+  const result = await env.step({ type: 'speak', utterance: 'What is the last activity for Sarah?' });
+
+  assert.equal(result.callerBehaviorEvaluation?.label, 'PREMATURE_TARGET_REQUEST');
+  assert.equal(env.getCallerBehaviorMetrics().prematureTargetRequests, 1);
+  assert.equal(env.getCallerBehaviorMetrics().ambiguousTurns, 1);
+});
+
+test('caller-side evaluator marks repeated clarification fields as redundant', async () => {
+  const env = createEnv();
+  const spec = GOLDEN_TASKS.find((task) => task.brief.type === 'RESOLVE_THEN_RETRIEVE');
+  assert.ok(spec);
+
+  await env.reset(spec);
+  await env.step({ type: 'initiate_call', target: spec.callTarget ?? 'Technologies' });
+
+  installStubVoiceAgent(env, [
+    {
+      text: 'Can you clarify further?',
+      semanticEvents: [],
+      toolEvents: [],
+    },
+    {
+      text: 'Still not enough detail.',
+      semanticEvents: [],
+      toolEvents: [],
+    },
+  ]);
+
+  const first = await env.step({ type: 'speak', utterance: 'Which account has active status?' });
+  const second = await env.step({ type: 'speak', utterance: 'I mean the account with active status.' });
+
+  assert.equal(first.callerBehaviorEvaluation?.label, 'GOOD_DISAMBIGUATION_QUESTION');
+  assert.equal(second.callerBehaviorEvaluation?.label, 'REDUNDANT_DISAMBIGUATION');
+  assert.equal(env.getCallerBehaviorMetrics().goodDisambiguationQuestions, 1);
+  assert.equal(env.getCallerBehaviorMetrics().redundantClarifications, 1);
+  assert.equal(env.getCallerBehaviorMetrics().ambiguousTurns, 2);
+});

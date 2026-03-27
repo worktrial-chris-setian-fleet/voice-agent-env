@@ -107,6 +107,46 @@ export type RewardEvent =
   | 'TARGET_FIELD_OBSERVED'
   | 'TURN_PENALTY';
 
+/** Caller-attributed disambiguation labels used for instrumentation and future reward shaping. */
+export type CallerBehaviorLabel =
+  | 'GOOD_DISAMBIGUATION_QUESTION'
+  | 'PREMATURE_TARGET_REQUEST'
+  | 'REDUNDANT_DISAMBIGUATION';
+
+/** Evaluation of one caller utterance while resolving ambiguity. */
+export interface CallerBehaviorEvaluation {
+  /** Whether this utterance was evaluated against the disambiguation rubric. */
+  applicable: boolean;
+  /** Whether the caller was still in an ambiguity-resolution phase. */
+  ambiguityActive: boolean;
+  /** Caller-attributed classification for this utterance, if any. */
+  label: CallerBehaviorLabel | null;
+  /** Short explanation suitable for logs and debugging. */
+  reason: string | null;
+  /** CRM fields referenced by the utterance. */
+  referencedFields: QueryableField[];
+  /** Whether the utterance explicitly asks which company/account is correct. */
+  asksForCompany: boolean;
+  /** Fields that would meaningfully narrow the candidate set. */
+  discriminatingFields: QueryableField[];
+  /** Deduped evaluator keys consumed for redundancy tracking. */
+  disambiguationKeys: string[];
+  /** Number of candidate accounts under consideration for this ambiguous task. */
+  candidateCount: number;
+}
+
+/** Episode-level caller-behavior instrumentation for ambiguous tasks. */
+export interface CallerBehaviorMetrics {
+  /** Number of caller `speak` turns evaluated while ambiguity remained unresolved. */
+  ambiguousTurns: number;
+  /** Count of high-signal disambiguation questions. */
+  goodDisambiguationQuestions: number;
+  /** Count of requests for the final field before the caller had resolved identity. */
+  prematureTargetRequests: number;
+  /** Count of repeated/low-value clarification attempts. */
+  redundantClarifications: number;
+}
+
 /** Snapshot of multistep progress at the end of a step or episode. */
 export interface ProgressSnapshot {
   /** Current environment view of the task's multistep phase. */
@@ -143,6 +183,10 @@ export interface StepResult {
   done: boolean;
   /** Reward event breakdown explaining where the reward came from. */
   rewardEvents: RewardEvent[];
+  /** Per-event signed reward amounts for this step, in application order. */
+  stepRewardBreakdown: { event: RewardEvent; amount: number }[];
+  /** Caller-attributed disambiguation evaluation for this turn, when applicable. */
+  callerBehaviorEvaluation: CallerBehaviorEvaluation | null;
   /** Invalid-action classification when the caller took an illegal action. */
   invalidActionReason?: InvalidActionReason;
   /** High-level semantic events emitted by the voice agent this turn. */
@@ -197,6 +241,8 @@ export interface EpisodeResult {
   voiceAgentEvents: VoiceAgentSemanticEvent[];
   /** Raw tool-event stream accumulated across the episode. */
   voiceAgentToolEvents: VoiceAgentToolEvent[];
+  /** Caller-attributed disambiguation instrumentation accumulated across the episode. */
+  callerBehaviorMetrics: CallerBehaviorMetrics;
 }
 
 /** Small caller action space exposed by the environment. */

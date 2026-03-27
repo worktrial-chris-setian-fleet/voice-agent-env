@@ -95,6 +95,12 @@ test('comparison marks golden regression as hold', async () => {
         followUpCompletionRate: 1,
         endedAwaitingFollowUpRate: 0,
       },
+      callerBehavior: {
+        ambiguousTurnCount: 2,
+        goodDisambiguationQuestionRate: 0.5,
+        prematureTargetRequestRate: 0,
+        redundantClarificationRate: 0,
+      },
     },
     candidateRun: {
       runId: 'run-candidate-golden',
@@ -115,6 +121,12 @@ test('comparison marks golden regression as hold', async () => {
         targetFieldObservedRate: 1,
         followUpCompletionRate: 1,
         endedAwaitingFollowUpRate: 0,
+      },
+      callerBehavior: {
+        ambiguousTurnCount: 2,
+        goodDisambiguationQuestionRate: 0.5,
+        prematureTargetRequestRate: 0,
+        redundantClarificationRate: 0,
       },
     },
   });

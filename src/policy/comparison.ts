@@ -16,6 +16,9 @@ export function compareRuns(input: {
     ['multistep.targetFieldObservedRate', baseRun.multistep.targetFieldObservedRate, candidateRun.multistep.targetFieldObservedRate],
     ['multistep.followUpCompletionRate', baseRun.multistep.followUpCompletionRate, candidateRun.multistep.followUpCompletionRate],
     ['multistep.endedAwaitingFollowUpRate', baseRun.multistep.endedAwaitingFollowUpRate, candidateRun.multistep.endedAwaitingFollowUpRate],
+    ['callerBehavior.goodDisambiguationQuestionRate', baseRun.callerBehavior.goodDisambiguationQuestionRate, candidateRun.callerBehavior.goodDisambiguationQuestionRate],
+    ['callerBehavior.prematureTargetRequestRate', baseRun.callerBehavior.prematureTargetRequestRate, candidateRun.callerBehavior.prematureTargetRequestRate],
+    ['callerBehavior.redundantClarificationRate', baseRun.callerBehavior.redundantClarificationRate, candidateRun.callerBehavior.redundantClarificationRate],
   ];
 
   const metricDeltas = metrics.map(([metric, base, candidate]) => ({
@@ -59,7 +62,9 @@ function lowerIsBetter(metric: string): boolean {
     metric.endsWith('invalidActionRate') ||
     metric.endsWith('wrongAnswerRate') ||
     metric.endsWith('noAnswerRate') ||
-    metric.endsWith('endedAwaitingFollowUpRate');
+    metric.endsWith('endedAwaitingFollowUpRate') ||
+    metric.endsWith('prematureTargetRequestRate') ||
+    metric.endsWith('redundantClarificationRate');
 }
 
 function formatSigned(value: number): string {

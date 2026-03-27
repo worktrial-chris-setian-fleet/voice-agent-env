@@ -169,6 +169,11 @@ function renderMetrics(summary, trajectories) {
 
   const bestReward = trajectories.length ? Math.max(...trajectories.map((t) => t.totalReward)) : 0;
   const worstReward = trajectories.length ? Math.min(...trajectories.map((t) => t.totalReward)) : 0;
+  const callerBehavior = summary.callerBehavior ?? {
+    goodDisambiguationQuestionRate: 0,
+    prematureTargetRequestRate: 0,
+    redundantClarificationRate: 0,
+  };
 
   el.metricsGrid.innerHTML = [
     metricCard('Episodes', String(summary.episodeCount)),
@@ -179,6 +184,9 @@ function renderMetrics(summary, trajectories) {
     metricCard('Invalid Action', formatPct(summary.invalidActionRate)),
     metricCard('Best Episode Reward', String(bestReward)),
     metricCard('Worst Episode Reward', String(worstReward)),
+    metricCard('Good Disambig', formatPct(callerBehavior.goodDisambiguationQuestionRate)),
+    metricCard('Premature Target', formatPct(callerBehavior.prematureTargetRequestRate)),
+    metricCard('Redundant Clarify', formatPct(callerBehavior.redundantClarificationRate)),
     metricCard('Multistep Clue Completion', formatPct(summary.multistep.resolutionSuccessRate)),
     metricCard('Target Observed', formatPct(summary.multistep.targetFieldObservedRate)),
     metricCard('Follow-up Completion', formatPct(summary.multistep.followUpCompletionRate)),

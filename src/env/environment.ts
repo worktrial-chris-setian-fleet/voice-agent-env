@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createCrmMcpPair } from '../mcp/server.js';
 import { VoiceAgent } from '../voice-agent/voice-agent.js';
 import { REWARD, turnPenalty } from './reward.js';
+import { evaluateCallerDisambiguationTurn } from './caller-disambiguation.js';
 import {
   answersMatch,
   fieldsMatch,
@@ -18,6 +19,8 @@ import type {
   ProgressPhase,
   ProgressSnapshot,
   ProgressUpdate,
+  CallerBehaviorEvaluation,
+  CallerBehaviorMetrics,
   ResolutionClue,
   RewardEvent,
   ScenarioSpec,
@@ -57,6 +60,8 @@ export class VoiceAgentEnv {
   private matchedResolutionClues = new Set<string>();
   private targetFieldObserved = false;
   private resolvedCompanyName: string | null = null;
+  private askedDisambiguationKeys = new Set<string>();
+  private callerBehaviorMetrics: CallerBehaviorMetrics = emptyCallerBehaviorMetrics();
 
   constructor(anthropic: Anthropic, options: EnvOptions = {}) {
     this.anthropic = anthropic;
@@ -81,6 +86,8 @@ export class VoiceAgentEnv {
     this.matchedResolutionClues = new Set();
     this.targetFieldObserved = false;
     this.resolvedCompanyName = null;
+    this.askedDisambiguationKeys = new Set();
+    this.callerBehaviorMetrics = emptyCallerBehaviorMetrics();
 
     const observation: EpisodeObservation = {
       brief: spec.brief,
@@ -106,6 +113,7 @@ export class VoiceAgentEnv {
 
     let stepReward = 0;
     const rewardEvents: RewardEvent[] = [];
+    const stepRewardBreakdown: { event: RewardEvent; amount: number }[] = [];
     let responseText = '';
     let done = false;
     let newCallState: CallState = observation.callState;
@@ -114,6 +122,7 @@ export class VoiceAgentEnv {
     let submittedAnswer = observation.submittedAnswer;
     let voiceAgentEvents: VoiceAgentSemanticEvent[] = [];
     let voiceAgentToolEvents: VoiceAgentToolEvent[] = [];
+    let callerBehaviorEvaluation: CallerBehaviorEvaluation | null = null;
     let invalidActionReason: InvalidActionReason | undefined;
     const previousPhase = this.getProgressPhase(spec);
     let progressUpdate: ProgressUpdate = {
@@ -125,6 +134,7 @@ export class VoiceAgentEnv {
 
     const addReward = (event: RewardEvent, amount: number) => {
       rewardEvents.push(event);
+      stepRewardBreakdown.push({ event, amount });
       stepReward += amount;
       this.rewardBreakdown.push({ event, amount });
     };
@@ -167,6 +177,13 @@ export class VoiceAgentEnv {
         newHistory.push({ speaker: 'VOICE_AGENT', utterance: responseText });
       }
     } else if (action.type === 'speak') {
+      callerBehaviorEvaluation = evaluateCallerDisambiguationTurn({
+        spec,
+        utterance: action.utterance,
+        ambiguityActive: this.isCallerAmbiguityActive(spec, previousPhase),
+        askedDisambiguationKeys: this.askedDisambiguationKeys,
+      });
+      this.recordCallerBehaviorEvaluation(callerBehaviorEvaluation);
       newHistory.push({ speaker: 'CALLER', utterance: action.utterance });
       const voiceAgentTurn = await this.voiceAgent.handleUtterance(action.utterance);
       responseText = voiceAgentTurn.text;
@@ -217,6 +234,8 @@ export class VoiceAgentEnv {
       reward: stepReward,
       done,
       rewardEvents,
+      stepRewardBreakdown,
+      callerBehaviorEvaluation,
       invalidActionReason,
       voiceAgentEvents,
       voiceAgentToolEvents,
@@ -227,6 +246,7 @@ export class VoiceAgentEnv {
 
   getRewardBreakdown() { return [...this.rewardBreakdown]; }
   getTotalReward() { return this.totalReward; }
+  getCallerBehaviorMetrics() { return { ...this.callerBehaviorMetrics }; }
 
   getProgressSnapshot(spec: ScenarioSpec): ProgressSnapshot {
     return {
@@ -309,6 +329,38 @@ export class VoiceAgentEnv {
     }
     return 'RESOLVING';
   }
+
+  private isCallerAmbiguityActive(spec: ScenarioSpec, phase: ProgressPhase): boolean {
+    if (spec.brief.type === 'DISAMBIGUATION') return true;
+    if (spec.brief.type === 'RESOLVE_THEN_RETRIEVE') return phase === 'RESOLVING';
+    return false;
+  }
+
+  private recordCallerBehaviorEvaluation(evaluation: CallerBehaviorEvaluation): void {
+    if (!evaluation.applicable || !evaluation.ambiguityActive) return;
+
+    this.callerBehaviorMetrics.ambiguousTurns++;
+    for (const key of evaluation.disambiguationKeys) {
+      this.askedDisambiguationKeys.add(key);
+    }
+
+    if (evaluation.label === 'GOOD_DISAMBIGUATION_QUESTION') {
+      this.callerBehaviorMetrics.goodDisambiguationQuestions++;
+    } else if (evaluation.label === 'PREMATURE_TARGET_REQUEST') {
+      this.callerBehaviorMetrics.prematureTargetRequests++;
+    } else if (evaluation.label === 'REDUNDANT_DISAMBIGUATION') {
+      this.callerBehaviorMetrics.redundantClarifications++;
+    }
+  }
+}
+
+function emptyCallerBehaviorMetrics(): CallerBehaviorMetrics {
+  return {
+    ambiguousTurns: 0,
+    goodDisambiguationQuestions: 0,
+    prematureTargetRequests: 0,
+    redundantClarifications: 0,
+  };
 }
 
 function validateAction(callState: CallState, action: CallerAction): InvalidActionReason | null {

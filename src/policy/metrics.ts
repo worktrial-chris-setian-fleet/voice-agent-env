@@ -39,6 +39,7 @@ export function buildStoredTrajectory(input: {
     hadInvalidAction: invalidActionCount > 0,
     prematureSubmit,
     resolvedAccountBeforeSubmit,
+    callerBehaviorMetrics: result.callerBehaviorMetrics,
   };
 }
 
@@ -68,6 +69,13 @@ export function deriveRunSummary(manifest: RunManifest, trajectories: StoredEpis
   }));
 
   const multistep = trajectories.filter((trajectory) => trajectory.scenarioType === 'RESOLVE_THEN_RETRIEVE');
+  const ambiguousTurnCount = trajectories.reduce((sum, trajectory) => sum + trajectory.callerBehaviorMetrics.ambiguousTurns, 0);
+  const goodDisambiguationQuestionCount = trajectories.reduce((sum, trajectory) =>
+    sum + trajectory.callerBehaviorMetrics.goodDisambiguationQuestions, 0);
+  const prematureTargetRequestCount = trajectories.reduce((sum, trajectory) =>
+    sum + trajectory.callerBehaviorMetrics.prematureTargetRequests, 0);
+  const redundantClarificationCount = trajectories.reduce((sum, trajectory) =>
+    sum + trajectory.callerBehaviorMetrics.redundantClarifications, 0);
 
   return {
     runId: manifest.runId,
@@ -94,6 +102,12 @@ export function deriveRunSummary(manifest: RunManifest, trajectories: StoredEpis
       targetFieldObservedRate: ratio(multistep.filter((trajectory) => trajectory.progress.targetFieldObserved).length, multistep.length),
       followUpCompletionRate: ratio(multistep.filter((trajectory) => trajectory.progress.phase === 'RETRIEVED').length, multistep.length),
       endedAwaitingFollowUpRate: ratio(multistep.filter((trajectory) => trajectory.progress.phase === 'AWAITING_FOLLOW_UP').length, multistep.length),
+    },
+    callerBehavior: {
+      ambiguousTurnCount,
+      goodDisambiguationQuestionRate: ratio(goodDisambiguationQuestionCount, ambiguousTurnCount),
+      prematureTargetRequestRate: ratio(prematureTargetRequestCount, ambiguousTurnCount),
+      redundantClarificationRate: ratio(redundantClarificationCount, ambiguousTurnCount),
     },
   };
 }
