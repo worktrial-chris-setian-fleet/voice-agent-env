@@ -60,7 +60,7 @@ Rules:
 - Preserve the placeholders {{TASK_DESCRIPTION}} and {{TARGET_FIELD}} exactly.
 - Optimize only the caller policy, not the environment.
 - Keep the prompt concise and action-oriented.
-- Focus on reducing invalid actions, premature submits, and multistep failures without regressing golden behavior.`,
+- Focus on reducing invalid actions, premature submits, premature target requests, and weak disambiguation behavior without regressing golden behavior.`,
     messages: [
       {
         role: 'user',

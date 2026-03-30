@@ -1,8 +1,8 @@
 # Learning Loop Framework
 
-## Approach: 'trajectory-based prompt optimization'
+## Approach: trajectory-based prompt optimization
 
-We can't update Claude's weights directly, so the learnable part of the caller policy is its **system prompt**. The prompt has two components that can improve over time: the static instruction text and a small set of few-shot trajectory examples. The learning loop collects episode trajectories, identifies what worked and what didn't, and uses that signal to update both components.
+We can't update Claude's weights directly in this repo, so the learnable part of the caller policy is its **system prompt**. The current implementation treats prompt text as the versioned policy artifact: runs produce summaries and trajectories, prompt updates produce candidate policies, and candidate policies are compared against the current policy before promotion.
 
 This is sometimes called in-context RL or rejection-sampling fine-tuning applied at the prompt level. It's the right fit here because:
 - Episodes are short and episodic (clear start/end, clean return signal)
@@ -12,44 +12,41 @@ This is sometimes called in-context RL or rejection-sampling fine-tuning applied
 
 ---
 
-## Three components
+## Current implementation
 
 ### 1. Trajectory collection
 
-Every episode produces a trajectory: the full sequence of `(state, action, reward)` tuples plus the final return. These are written to a JSONL log so they persist across runs and can be queried.
+Every episode produces a stored trajectory plus a run summary. These are persisted under `artifacts/` as:
 
-Each trajectory record stores:
-- Episode metadata: task type, difficulty, persona, query style
-- Turn-by-turn sequence: action taken, voice agent response, reward delta
-- Episode outcome: total return, success/failure, failure reason if applicable
-- Policy version: which prompt generation produced this trajectory
+- `artifacts/baseline/baseline.json`
+- `artifacts/experiments/<experiment-id>/experiment.json`
+- `artifacts/experiments/<experiment-id>/policies/<policy-id>.json`
+- `artifacts/experiments/<experiment-id>/runs/<run-id>/manifest.json`
+- `artifacts/experiments/<experiment-id>/runs/<run-id>/summary.json`
+- `artifacts/experiments/<experiment-id>/runs/<run-id>/trajectories.jsonl`
+- `artifacts/experiments/<experiment-id>/comparisons/*.json`
 
-The JSONL format means any episode can be replayed, filtered by outcome, or fed back into the prompt.
+Each stored trajectory includes scenario metadata, conversation history, reward breakdown, multistep progress, raw tool traces, and caller-behavior metrics.
 
 ### 2. Policy improvement
 
-At the end of a training generation (N episodes), the policy updater runs two passes:
+There are two updater modes today:
 
-**Positive reinforcement — few-shot examples**
-Select the top-K highest-return trajectories and add them to the system prompt as demonstrations. The caller sees concrete examples of efficient, successful episodes before it acts. Limit to 2–3 examples to avoid prompt bloat; prefer examples that cover different task types and failure modes navigated correctly.
+- **`manual`** — use a provided replacement prompt
+- **`llm`** — ask Claude to revise the prompt using recent run summaries plus a small set of failure samples
 
-**Failure analysis — targeted guidance**
-Identify the most common failure pattern in the generation. The actionable signals are:
+The implemented LLM updater currently focuses on:
+- invalid actions
+- premature submit behavior
+- premature target requests
+- weak disambiguation behavior
+- avoiding regressions on golden scenarios
 
-- **WRONG_ANSWER rate** — caller is submitting before it has enough information; add guidance on confidence threshold before submitting
-- **CALL_ENDED_NO_ANSWER rate** — caller is hanging up without extracting the answer; add guidance on persistence
-- **Disambiguation loop turns** — caller is burning turns on back-and-forth before resolving which account is being discussed; add guidance on leading with the contact's full name
-- **Recovery rate after failed call attempts** — fraction of episodes where the call failed (answering machine, wrong number, no answer) and the caller ultimately succeeded by retrying; low recovery rate means the caller is giving up too early
-
-Note: the raw frequency of ANSWERING_MACHINE / WRONG_NUMBER / NO_ANSWER outcomes is not a policy signal. Those outcomes are drawn from fixed environment probabilities (10% / 5% / 5%) and are independent of what the caller does. What the caller *can* learn is whether to retry after a failure — and that is captured by recovery rate, measured from the action sequence in the trajectory log, not from the failure label itself.
-
-Add a short, specific instruction to the system prompt addressing the dominant failure pattern. One targeted rule per generation is enough — stacking too many rules quickly degrades prompt quality.
-
-The updated prompt becomes the policy for the next generation. The previous prompt is archived so improvement can be measured.
+Candidate prompts are stored as policy versions, not applied in place.
 
 ### 3. Evaluation
 
-Three evaluation modes, each serving a distinct purpose:
+Three run suites are available in the implementation:
 
 **Golden suite (regression anchor)**
 `npm run golden` runs the same 6 fixed scenarios every generation. This is the floor — the policy must not get worse on known scenarios. If golden pass rate drops, the update is rejected. A healthy policy should hold 6/6 throughout training, including the multistep resolve-then-retrieve case.
@@ -59,13 +56,15 @@ Three evaluation modes, each serving a distinct purpose:
 
 | Scenarios | Failure mode targeted |
 |-----------|----------------------|
-| S1, S2 | First-name-only disambiguation: agent has no last name, must resolve from contextual clues |
-| S3, S4 | Partial company name: agent dials a shortened name, voice agent must resolve |
-| S5, S6 | Edge-case field values: empty renewal date ("No renewal date on file"), zero contract value ("No contract on file") |
-| S7 | No-clue disambiguation: first name only, no role or company hint — hardest path |
-| S8 | Verify-style turn inflation: "confirm" framing encourages extra turns |
+| S1, S2 | Deep first-name-only disambiguation with hints the voice agent cannot directly resolve |
+| S3, S4 | Ambiguous company fragments such as `"Technologies"` and `"Corp"` |
+| S5, S6 | Contact ambiguity with weak or absent clues |
+| S7, S8 | Resolve-then-retrieve chains that require follow-up after identity resolution |
 
-Baseline (first run): 6/8 passed, avg reward +4.3. A prompt improvement should move both pass rate and avg reward upward. If S1/S2 reward increases, disambiguation strategy is improving. If S7 moves from fail to pass, the caller has learned to ask about distinguishing account characteristics rather than contact roles.
+Stress is intended as an improvement signal more than a binary pass/fail gate.
+
+**Random suite**
+`npm start` runs sampled episodes from the broader task distribution, with stochastic call routing still enabled.
 
 **Generation metrics**
 After each training generation, record: success rate, average return, average turns, and per-task-type breakdown. Plot these across generations to produce the learning curve. A meaningful improvement is a consistent rise in success rate across at least two consecutive generations, not a single lucky run.
@@ -80,46 +79,44 @@ Pass/fail is purely answer correctness: an episode passes if a value was submitt
 
 ---
 
-## Training loop structure
+## Experiment loop structure
 
 ```
-Generation 0: baseline prompt, N episodes → trajectories logged
+npm run experiment:init -- --label "prompt-pass-1"
   ↓
-Policy update: select top-K examples + identify failure pattern
+npm run experiment:step -- --experiment <id> --updater llm
   ↓
-Generation 1: updated prompt, N episodes → trajectories logged
+base policy runs on golden/stress/random
   ↓
-Policy update: ...
+candidate prompt generated and stored
   ↓
-...
+candidate policy runs on golden/stress/random
   ↓
-Golden suite: run after each generation, reject update if regression
+run comparisons written; candidate promoted if it clears the gate
 ```
 
-A generation is 10–20 episodes — enough to see a failure pattern, not so many that a bad prompt wastes API budget. Start at 10.
+`npm run experiment:loop` simply repeats that step for multiple iterations.
 
 ---
 
 ## What success looks like
 
-A working learning loop should show, over 3–5 generations:
+A healthy prompt-optimization loop should show, over multiple iterations:
 - Success rate on training episodes trending upward from baseline (expect ~70–80% at generation 0 on easy tasks)
 - Average turns decreasing as the caller learns to ask directly
-- Stress suite avg reward increasing from the +4.3 baseline, particularly S1/S2 (disambiguation) and S7 (no-clue)
+- Stress suite avg reward increasing, especially on ambiguity-heavy scenarios
 - Recovery rate after failed call attempts trending upward, as the caller learns to retry rather than quit
 
 The metrics that are *not* meaningful signals: the raw frequency of ANSWERING_MACHINE, WRONG_NUMBER, and NO_ANSWER outcomes. These are drawn from fixed environment probabilities (10%/5%/5%) and will be noise at any sample size a training generation provides. Don't include them in the learning curve — they'll obscure real signal.
 
-The golden suite staying at 5/5 throughout is the integrity check. If the prompt is improving on training tasks but regressing on golden tasks, the policy is overfitting to the recent trajectory sample.
+The golden suite staying at 6/6 is the integrity check. If the prompt is improving on random or stress tasks but regressing on golden tasks, the candidate should not be promoted.
 
 ---
 
-## Implementation plan
+## Key files
 
-Three new pieces, in order:
-
-1. **`src/runner/trajectory-store.ts`** — append-only JSONL writer; `save(trajectory)`, `loadAll()`, `loadByGeneration(n)`, `loadTopK(k)`
-2. **`src/runner/policy-updater.ts`** — `selectExamples(trajectories, k)`, `analyzeFailures(trajectories)`, `buildPrompt(base, examples, guidance)`
-3. **`src/training-run.ts`** — the outer loop: run a generation, call the updater, write updated prompt, repeat for G generations, run golden suite at the end
-
-`LLMAgent` gets a `setPrompt(prompt: string)` method so the training loop can inject the updated prompt between generations without reconstructing the agent.
+- `src/runner/run-orchestrator.ts` — run execution, experiment steps, candidate promotion logic
+- `src/runner/artifact-writer.ts` — persisted run artifacts
+- `src/policy/store.ts` — artifact layout and file I/O
+- `src/policy/prompt-updater.ts` — manual and LLM prompt updaters
+- `src/viewer/server.ts` — local inspection UI over stored artifacts

@@ -140,6 +140,13 @@ export class Logger {
         ` Redundant:    ${result.callerBehaviorMetrics.redundantClarifications}`.padEnd(58) +
         chalk.bold.white('│')
       );
+      if (result.callerBehaviorMetrics.turnsToResolution !== null) {
+        console.log(
+          chalk.bold.white('│') +
+          ` Resolved In:  ${result.callerBehaviorMetrics.turnsToResolution} turns`.padEnd(58) +
+          chalk.bold.white('│')
+        );
+      }
     }
     console.log(chalk.bold.white('│') + ` Outcome:      ${outcomeColor(outcomeLabel)}`.padEnd(58 + (outcomeColor(outcomeLabel).length - outcomeLabel.length)) + chalk.bold.white('│'));
     if (!result.success && result.failureReason) {
@@ -195,8 +202,14 @@ export class Logger {
     const prematureRate = ambiguousTurns > 0
       ? (ambiguous.reduce((sum, result) => sum + result.callerBehaviorMetrics.prematureTargetRequests, 0) / ambiguousTurns * 100).toFixed(1)
       : null;
-    const redundantRate = ambiguousTurns > 0
-      ? (ambiguous.reduce((sum, result) => sum + result.callerBehaviorMetrics.redundantClarifications, 0) / ambiguousTurns * 100).toFixed(1)
+    const avgTurnsToResolution = ambiguous.length > 0
+      ? (() => {
+          const resolved = ambiguous.filter((result) => result.callerBehaviorMetrics.turnsToResolution !== null);
+          if (resolved.length === 0) return null;
+          return (
+            resolved.reduce((sum, result) => sum + (result.callerBehaviorMetrics.turnsToResolution ?? 0), 0) / resolved.length
+          ).toFixed(2);
+        })()
       : null;
 
     console.log('');
@@ -225,13 +238,15 @@ export class Logger {
       console.log(chalk.bold.white('║') + ` Ended awaiting follow-up: ${followUpPendingRate}%`.padEnd(58) + chalk.bold.white('║'));
       console.log(chalk.bold.white('║') + ` Target field observed: ${targetObservedRate}%`.padEnd(58) + chalk.bold.white('║'));
     }
-    if (goodQuestionRate !== null && prematureRate !== null && redundantRate !== null) {
+    if (goodQuestionRate !== null && prematureRate !== null) {
       console.log(chalk.bold.white('╠' + '═'.repeat(58) + '╣'));
       console.log(chalk.bold.white('║') + chalk.bold.white(' CALLER BEHAVIOR'.padEnd(58)) + chalk.bold.white('║'));
       console.log(chalk.bold.white('╠' + '═'.repeat(58) + '╣'));
       console.log(chalk.bold.white('║') + ` Good disambiguation rate: ${goodQuestionRate}%`.padEnd(58) + chalk.bold.white('║'));
       console.log(chalk.bold.white('║') + ` Premature target rate: ${prematureRate}%`.padEnd(58) + chalk.bold.white('║'));
-      console.log(chalk.bold.white('║') + ` Redundant clarification: ${redundantRate}%`.padEnd(58) + chalk.bold.white('║'));
+      if (avgTurnsToResolution !== null) {
+        console.log(chalk.bold.white('║') + ` Avg turns to resolution: ${avgTurnsToResolution}`.padEnd(58) + chalk.bold.white('║'));
+      }
     }
     console.log(chalk.bold.white('╚' + '═'.repeat(58) + '╝'));
   }

@@ -183,6 +183,7 @@ export class VoiceAgentEnv {
         ambiguityActive: this.isCallerAmbiguityActive(spec, previousPhase),
         askedDisambiguationKeys: this.askedDisambiguationKeys,
       });
+      this.applyCallerBehaviorReward(callerBehaviorEvaluation, addReward);
       this.recordCallerBehaviorEvaluation(callerBehaviorEvaluation);
       newHistory.push({ speaker: 'CALLER', utterance: action.utterance });
       const voiceAgentTurn = await this.voiceAgent.handleUtterance(action.utterance);
@@ -211,6 +212,14 @@ export class VoiceAgentEnv {
 
     this.totalReward += stepReward;
     const progress = this.getProgressSnapshot(spec);
+    if (
+      this.callerBehaviorMetrics.turnsToResolution === null &&
+      this.resolvedCompanyName !== null &&
+      this.callerBehaviorMetrics.ambiguousTurns > 0 &&
+      (spec.brief.type === 'DISAMBIGUATION' || spec.brief.type === 'RESOLVE_THEN_RETRIEVE')
+    ) {
+      this.callerBehaviorMetrics.turnsToResolution = this.callerBehaviorMetrics.ambiguousTurns;
+    }
     progressUpdate.phaseChangedTo = progress.phase !== previousPhase ? progress.phase : null;
 
     const nextObservation: EpisodeObservation = {
@@ -270,32 +279,37 @@ export class VoiceAgentEnv {
       resolvedCompanyNameThisTurn: null,
     };
 
-    if (spec.brief.type !== 'RESOLVE_THEN_RETRIEVE' || !spec.resolutionClues || spec.resolutionClues.length === 0) {
-      return progressUpdate;
+    const resolvedEvent = voiceAgentEvents.find((event): event is Extract<VoiceAgentSemanticEvent, { type: 'account_resolved' }> =>
+      event.type === 'account_resolved' && event.accountId === spec.targetAccountId
+    );
+    if (resolvedEvent && this.resolvedCompanyName === null) {
+      this.resolvedCompanyName = resolvedEvent.companyName;
+      progressUpdate.resolvedCompanyNameThisTurn = resolvedEvent.companyName;
     }
 
-    for (const clue of spec.resolutionClues) {
-      const clueKey = makeClueKey(clue.field, clue.value);
-      if (this.matchedResolutionClues.has(clueKey)) continue;
+    if (spec.brief.type === 'RESOLVE_THEN_RETRIEVE' && spec.resolutionClues && spec.resolutionClues.length > 0) {
+      for (const clue of spec.resolutionClues) {
+        const clueKey = makeClueKey(clue.field, clue.value);
+        if (this.matchedResolutionClues.has(clueKey)) continue;
 
-      const matchingEvent = voiceAgentEvents.find((event): event is Extract<VoiceAgentSemanticEvent, { type: 'resolution_clue_confirmed' }> =>
-        event.type === 'resolution_clue_confirmed' &&
-        event.accountId === spec.targetAccountId &&
-        normalizeFieldName(event.clue.field) === normalizeFieldName(clue.field) &&
-        answersMatch(normalizeAnswer(event.clue.value), normalizeAnswer(clue.value))
-      );
+        const matchingEvent = voiceAgentEvents.find((event): event is Extract<VoiceAgentSemanticEvent, { type: 'resolution_clue_confirmed' }> =>
+          event.type === 'resolution_clue_confirmed' &&
+          event.accountId === spec.targetAccountId &&
+          normalizeFieldName(event.clue.field) === normalizeFieldName(clue.field) &&
+          answersMatch(normalizeAnswer(event.clue.value), normalizeAnswer(clue.value))
+        );
 
-      if (matchingEvent) {
-        this.matchedResolutionClues.add(clueKey);
-        progressUpdate.newlyConfirmedClues.push(clue.label);
-        addReward('RESOLUTION_CLUE_CONFIRMED', REWARD.RESOLUTION_CLUE_CONFIRMED);
+        if (matchingEvent) {
+          this.matchedResolutionClues.add(clueKey);
+          progressUpdate.newlyConfirmedClues.push(clue.label);
 
-        if (
-          this.matchedResolutionClues.size === spec.resolutionClues.length &&
-          this.resolvedCompanyName === null
-        ) {
-          this.resolvedCompanyName = matchingEvent.companyName;
-          progressUpdate.resolvedCompanyNameThisTurn = matchingEvent.companyName;
+          if (
+            this.matchedResolutionClues.size === spec.resolutionClues.length &&
+            this.resolvedCompanyName === null
+          ) {
+            this.resolvedCompanyName = matchingEvent.companyName;
+            progressUpdate.resolvedCompanyNameThisTurn = matchingEvent.companyName;
+          }
         }
       }
     }
@@ -310,7 +324,16 @@ export class VoiceAgentEnv {
       if (observedTargetField) {
         this.targetFieldObserved = true;
         progressUpdate.targetFieldObservedThisTurn = true;
-        addReward('TARGET_FIELD_OBSERVED', REWARD.TARGET_FIELD_OBSERVED);
+      }
+    }
+
+    if (this.resolvedCompanyName === null) {
+      const observedTargetAccount = voiceAgentEvents.find((event): event is Extract<VoiceAgentSemanticEvent, { type: 'field_returned' }> =>
+        event.type === 'field_returned' && event.accountId === spec.targetAccountId
+      );
+      if (observedTargetAccount) {
+        this.resolvedCompanyName = observedTargetAccount.companyName;
+        progressUpdate.resolvedCompanyNameThisTurn = observedTargetAccount.companyName;
       }
     }
 
@@ -331,7 +354,7 @@ export class VoiceAgentEnv {
   }
 
   private isCallerAmbiguityActive(spec: ScenarioSpec, phase: ProgressPhase): boolean {
-    if (spec.brief.type === 'DISAMBIGUATION') return true;
+    if (spec.brief.type === 'DISAMBIGUATION') return this.resolvedCompanyName === null && !this.targetFieldObserved;
     if (spec.brief.type === 'RESOLVE_THEN_RETRIEVE') return phase === 'RESOLVING';
     return false;
   }
@@ -352,6 +375,14 @@ export class VoiceAgentEnv {
       this.callerBehaviorMetrics.redundantClarifications++;
     }
   }
+
+  private applyCallerBehaviorReward(
+    evaluation: CallerBehaviorEvaluation,
+    addReward: (event: RewardEvent, amount: number) => void
+  ): void {
+    if (!evaluation.applicable || !evaluation.ambiguityActive || evaluation.label === null) return;
+    addReward(evaluation.label, REWARD[evaluation.label]);
+  }
 }
 
 function emptyCallerBehaviorMetrics(): CallerBehaviorMetrics {
@@ -360,6 +391,7 @@ function emptyCallerBehaviorMetrics(): CallerBehaviorMetrics {
     goodDisambiguationQuestions: 0,
     prematureTargetRequests: 0,
     redundantClarifications: 0,
+    turnsToResolution: null,
   };
 }
 

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **Voice Agent RL Environment** — a work trial project. The goal is to build a simulated environment where an RL agent makes outbound "calls" to a CRM via MCP tool calls, interacts through a dialogue layer, and receives a reward based on retrieval success.
+This is a **Voice Agent RL Environment**. The caller agent is the RL subject: it makes outbound "calls", interacts through a dialogue layer, and is rewarded for retrieving the correct CRM information efficiently. The caller does not access CRM data directly.
 
 ## Architecture
 
@@ -12,17 +12,18 @@ The system has four main components:
 
 1. **CRM Data Store** — A static dataset of ~20–50 accounts (JSON file or in-memory). Fields: company name, primary contact, deal stage, last activity, contract value, contract renewal date, account status.
 
-2. **MCP Server** — The agent's exclusive interface to the CRM. The agent must not access CRM data directly — only through MCP tool calls. Tool definitions here are critical: how the agent discovers and uses them defines the interaction quality.
+2. **MCP Server** — The voice agent's internal interface to the CRM. The caller agent must not access CRM data directly. Tool definitions here are critical because they shape how the environment-side voice agent retrieves and explains account data.
 
 3. **Voice/Dialogue Layer** — Simulates the call interface. Agent actions are natural language utterances. This layer should model realistic failure modes: answering machine, wrong number, ambiguous query (e.g., multiple contacts named "Sarah"), missing records, wrong field retrieved.
 
-4. **RL Environment + Agent Loop** — Wraps the above into episodes. Each episode: agent receives a task → takes actions via dialogue → calls MCP tools → receives reward. Reward signal based on correctness and efficiency (penalize unnecessary turns/calls).
+4. **RL Environment + Agent Loop** — Wraps the above into episodes. Each episode: caller receives a task → takes call actions (`initiate_call`, `speak`, `submit_answer`, `end_call`) → receives reward. Reward signal is based on correctness, efficiency, and disambiguation behavior.
 
 ## Task Types
 
-Two meaningfully different retrieval paths are required:
+The repo currently supports three retrieval paths:
 - **Simple lookup**: "Find the contract value for Acme Corp" — direct single-step retrieval.
 - **Disambiguation**: Multi-step retrieval requiring clarification (e.g., multiple records match, ambiguous input).
+- **Resolve then retrieve**: Identify the correct account from partial identity plus clues, then ask a follow-up to get the final field.
 
 ## Key Design Decisions to Make
 
@@ -37,9 +38,8 @@ Two meaningfully different retrieval paths are required:
 
 API keys are stored in `.env` (not committed). Required keys:
 - `ANTHROPIC_API_KEY`
-- `OPENAI_API_KEY`
 
 ## Deliverables
 
 - Working environment + agent loop
-- Written analysis (`Design-Notes.md`) covering: reward landscape, environment design improvements, what it would take to integrate a real voice API (STT/TTS)
+- Written analysis ([`docs/design-notes.md`](docs/design-notes.md)) covering reward landscape, environment design improvements, and what it would take to integrate a real voice API (STT/TTS)

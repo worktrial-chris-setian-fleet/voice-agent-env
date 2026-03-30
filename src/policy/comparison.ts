@@ -18,7 +18,7 @@ export function compareRuns(input: {
     ['multistep.endedAwaitingFollowUpRate', baseRun.multistep.endedAwaitingFollowUpRate, candidateRun.multistep.endedAwaitingFollowUpRate],
     ['callerBehavior.goodDisambiguationQuestionRate', baseRun.callerBehavior.goodDisambiguationQuestionRate, candidateRun.callerBehavior.goodDisambiguationQuestionRate],
     ['callerBehavior.prematureTargetRequestRate', baseRun.callerBehavior.prematureTargetRequestRate, candidateRun.callerBehavior.prematureTargetRequestRate],
-    ['callerBehavior.redundantClarificationRate', baseRun.callerBehavior.redundantClarificationRate, candidateRun.callerBehavior.redundantClarificationRate],
+    ['callerBehavior.avgTurnsToResolution', baseRun.callerBehavior.avgTurnsToResolution, candidateRun.callerBehavior.avgTurnsToResolution],
   ];
 
   const metricDeltas = metrics.map(([metric, base, candidate]) => ({
@@ -64,7 +64,7 @@ function lowerIsBetter(metric: string): boolean {
     metric.endsWith('noAnswerRate') ||
     metric.endsWith('endedAwaitingFollowUpRate') ||
     metric.endsWith('prematureTargetRequestRate') ||
-    metric.endsWith('redundantClarificationRate');
+    metric.endsWith('avgTurnsToResolution');
 }
 
 function formatSigned(value: number): string {

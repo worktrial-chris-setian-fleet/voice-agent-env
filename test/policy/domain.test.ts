@@ -99,7 +99,7 @@ test('comparison marks golden regression as hold', async () => {
         ambiguousTurnCount: 2,
         goodDisambiguationQuestionRate: 0.5,
         prematureTargetRequestRate: 0,
-        redundantClarificationRate: 0,
+        avgTurnsToResolution: 1.5,
       },
     },
     candidateRun: {
@@ -126,7 +126,7 @@ test('comparison marks golden regression as hold', async () => {
         ambiguousTurnCount: 2,
         goodDisambiguationQuestionRate: 0.5,
         prematureTargetRequestRate: 0,
-        redundantClarificationRate: 0,
+        avgTurnsToResolution: 1.5,
       },
     },
   });

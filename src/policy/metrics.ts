@@ -74,8 +74,7 @@ export function deriveRunSummary(manifest: RunManifest, trajectories: StoredEpis
     sum + trajectory.callerBehaviorMetrics.goodDisambiguationQuestions, 0);
   const prematureTargetRequestCount = trajectories.reduce((sum, trajectory) =>
     sum + trajectory.callerBehaviorMetrics.prematureTargetRequests, 0);
-  const redundantClarificationCount = trajectories.reduce((sum, trajectory) =>
-    sum + trajectory.callerBehaviorMetrics.redundantClarifications, 0);
+  const resolvedAmbiguityEpisodes = trajectories.filter((trajectory) => trajectory.callerBehaviorMetrics.turnsToResolution !== null);
 
   return {
     runId: manifest.runId,
@@ -107,7 +106,9 @@ export function deriveRunSummary(manifest: RunManifest, trajectories: StoredEpis
       ambiguousTurnCount,
       goodDisambiguationQuestionRate: ratio(goodDisambiguationQuestionCount, ambiguousTurnCount),
       prematureTargetRequestRate: ratio(prematureTargetRequestCount, ambiguousTurnCount),
-      redundantClarificationRate: ratio(redundantClarificationCount, ambiguousTurnCount),
+      avgTurnsToResolution: average(
+        resolvedAmbiguityEpisodes.map((trajectory) => trajectory.callerBehaviorMetrics.turnsToResolution ?? 0)
+      ),
     },
   };
 }

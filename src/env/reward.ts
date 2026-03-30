@@ -7,8 +7,9 @@ export const REWARD: Record<RewardEvent, number> = {
   ANSWERING_MACHINE: -2,
   WRONG_NUMBER: -2,
   INVALID_ACTION: -2,
-  RESOLUTION_CLUE_CONFIRMED: 1,
-  TARGET_FIELD_OBSERVED: 1,
+  GOOD_DISAMBIGUATION_QUESTION: 1,
+  PREMATURE_TARGET_REQUEST: -1,
+  REDUNDANT_DISAMBIGUATION: -1,
   TURN_PENALTY: -1, // base value; applied to spoken turns and retry dial attempts
 };
 

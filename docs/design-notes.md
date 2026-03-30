@@ -69,9 +69,9 @@ The caller never touches MCP. This means the caller cannot directly query the CR
 
 ### 4. LLM Evaluation Loop (No Weight Updates)
 
-**Current:** Claude `claude-sonnet-4-6` is evaluated over N episodes in a pure inference loop. There are no gradient updates, policy optimization, or experience replay. The `VoiceAgentEnv` provides `reset()`, `step()`, and `reward` — but these are only used for logging, not for learning.
+**Current:** Claude `claude-sonnet-4-6` is still not being fine-tuned with gradient updates, PPO, or replay buffers. However, the repo no longer stops at pure one-off evaluation: runs now persist summaries and trajectories, and the experiment loop can generate candidate prompt revisions from those artifacts before re-evaluating them. This is prompt-level policy iteration, not weight training.
 
-**Future Evolution:** The `VoiceAgentEnv.reset()`/`step()`/`reward` interface is already Gym-compatible in spirit. Adding REINFORCE or PPO over the caller's action space is straightforward: collect `(state, action, reward)` tuples per episode, compute policy gradients over the action type and argument selections, and fine-tune a smaller model with RL. The `EpisodeResult.rewardBreakdown` provides a structured signal for credit assignment.
+**Future Evolution:** The `VoiceAgentEnv.reset()`/`step()`/`reward` interface is already Gym-compatible in spirit. Adding REINFORCE or PPO over the caller's action space is still a natural next step: collect `(state, action, reward)` tuples per episode, compute policy gradients over the action type and argument selections, and fine-tune a smaller model with RL. The existing stored trajectories and `EpisodeResult.rewardBreakdown` already provide most of the bookkeeping needed for credit assignment.
 
 ---
 
@@ -89,11 +89,11 @@ See MVP Decision #3 above — the transport choice and its evolution path are do
 
 ---
 
-### 7. Terminal-Only Observability
+### 7. Artifact-Backed Observability
 
-**Current:** All episode data is logged to stdout using chalk-colored text — caller actions in cyan, voice agent responses in yellow, reward deltas in green/red, and episode summaries in bordered boxes. There is no persistent log storage and no way to replay episodes after the run.
+**Current:** The runner still prints chalk-colored terminal traces, but observability is no longer terminal-only. Every run now persists a manifest, summary, and JSONL trajectories under `artifacts/`, and the local viewer server can browse experiments, runs, and per-episode trajectories in a browser.
 
-**Future Evolution:** Emit structured JSONL episode logs alongside chalk output (one JSON line per step, one per episode). Build a lightweight Hono server that reads the JSONL log and serves a browser dashboard with episode replay, reward curves, and per-task-type breakdown charts. The `EpisodeResult` type already contains all the data needed for replay.
+**Future Evolution:** The next observability improvements are richer analytics rather than basic persistence: trend views across policy versions, tighter diffing of candidate vs baseline behavior, and better replay ergonomics for long trajectories. The current artifact format is already sufficient to support those layers.
 
 ---
 

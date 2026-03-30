@@ -85,7 +85,7 @@ export interface CallerBehaviorSummary {
   ambiguousTurnCount: number;
   goodDisambiguationQuestionRate: number;
   prematureTargetRequestRate: number;
-  redundantClarificationRate: number;
+  avgTurnsToResolution: number;
 }
 
 export interface RunSummary {

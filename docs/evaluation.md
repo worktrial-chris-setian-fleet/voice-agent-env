@@ -1,6 +1,11 @@
 # Evaluation Guide
 
-Two run modes exist: **golden** (static, deterministic, comparable across runs) and **training** (randomised, varied, for exploring the task distribution).
+The repo currently supports four evaluation workflows:
+
+- **Golden** — fixed regression suite, deterministic call outcomes
+- **Stress** — fixed adversarial suite, deterministic call outcomes
+- **Random** — sampled episodes from the task distribution
+- **Experiment loop** — baseline vs candidate policy evaluation with stored artifacts and comparisons
 
 ---
 
@@ -29,7 +34,23 @@ The six tasks are intentional: they span every queryable field type (numeric, da
 
 ---
 
-## Training runs — `npm start`
+## Stress suite — `npm run stress`
+
+Runs eight fixed adversarial scenarios chosen to expose known failure modes. Like golden, all call outcomes are forced to `ANSWERED` so the suite is comparable across runs, but unlike golden the goal is not necessarily 8/8 pass rate. Stress is most useful as a reward and behavior benchmark.
+
+```bash
+npm run stress
+```
+
+The current stress set includes:
+- deep first-name-only disambiguation
+- ambiguous company fragments like `"Technologies"` or `"Corp"`
+- no-clue contact resolution
+- multistep resolve-then-retrieve chains
+
+---
+
+## Random runs — `npm start`
 
 Runs N randomly generated episodes. Tasks are sampled from the full distribution of task types, difficulty levels, caller personas, and query styles on every run — no two runs are identical.
 
@@ -40,6 +61,25 @@ N_EPISODES=20 npm start      # via env var
 ```
 
 Use training runs to explore how the agent handles the full task space, stress-test edge cases, and collect reward statistics across many episodes.
+
+Random runs keep the environment's probabilistic call routing, so `ANSWERING_MACHINE`, `WRONG_NUMBER`, and `NO_ANSWER` can still occur.
+
+---
+
+## Experiment loop
+
+The repo also supports prompt-version experiments backed by persisted artifacts under `artifacts/`.
+
+```bash
+npm run experiment:init -- --label "prompt-iter-1"
+npm run experiment:step -- --experiment <experiment-id> --updater llm
+npm run experiment:loop -- --experiment <experiment-id> --iterations 3 --updater llm
+npm run experiment:show -- --experiment <experiment-id>
+npm run policy:show -- --experiment <experiment-id> --policy <policy-id>
+npm run viewer
+```
+
+`experiment:step` evaluates the current policy, creates a candidate prompt, evaluates the candidate on the configured suites, stores summaries/trajectories/comparisons, and promotes the candidate if it clears the comparison gate.
 
 ---
 
@@ -98,11 +138,14 @@ On ambiguity-heavy tasks, the runner now also logs **caller-side disambiguation 
 - premature target request
 - redundant clarification
 
-These caller-behavior labels are instrumentation only in the current phase. They are intended to support a future reward shift away from voice-agent-derived intermediate credit.
+These caller-behavior labels now drive the intermediate shaping reward. Voice-agent progress events remain in the logs as diagnostics, but they no longer contribute intermediate reward.
 
 **Episode summary box** shows the submitted answer vs the target value, outcome (SUCCESS / FAILURE), failure reason if applicable, and total reward for the episode.
 
-**Run summary** (printed after all episodes) shows success rate, average reward, average turns, a per-task-type breakdown, multistep progress, and a compact caller-behavior section for ambiguous tasks.
+**Run summary** (printed after all episodes) shows success rate, average reward, average turns, a per-task-type breakdown, multistep diagnostics, and a compact caller-behavior section focused on:
+- good disambiguation question rate
+- premature target request rate
+- average turns to resolution
 
 ---
 
@@ -115,9 +158,11 @@ These caller-behavior labels are instrumentation only in the current phase. They
 | `CALL_ENDED_NO_ANSWER` | −3 | `end_call` without submitting |
 | `ANSWERING_MACHINE` | −2 | `initiate_call` hits answering machine |
 | `WRONG_NUMBER` | −2 | `initiate_call` hits wrong number |
-| `RESOLUTION_CLUE_CONFIRMED` | +1 | a multistep clue is confirmed for the target account |
-| `TARGET_FIELD_OBSERVED` | +1 | the multistep target field is observed for the target account before submit |
-| `TURN_PENALTY` | −1 | every `speak` and every retry `initiate_call` after the first |
+| `INVALID_ACTION` | −2 | caller uses an action that is illegal in the current call state |
+| `GOOD_DISAMBIGUATION_QUESTION` | +1 | caller asks a useful distinguishing question while ambiguity is still active |
+| `PREMATURE_TARGET_REQUEST` | −1 | caller asks for the target field before resolving which account/contact is meant |
+| `REDUNDANT_DISAMBIGUATION` | −1 | caller repeats a clarification dimension that was already used |
+| `TURN_PENALTY` | −1 / −2 / −3 | every `speak` and every retry `initiate_call` after the first; escalates as penalized turns accumulate |
 
 A perfect SIMPLE_LOOKUP episode (one free `initiate_call`, one `speak`, correct `submit_answer`) scores **+9**: +10 −1.
-A perfect single-clue RESOLVE_THEN_RETRIEVE episode scores **+11**: +10 +1 +1 −1.
+A clean single-clue RESOLVE_THEN_RETRIEVE episode with one good resolving question and one follow-up retrieval turn scores **+9**: +10 +1 −1 −1.

@@ -15,11 +15,13 @@ The caller can only extract information through conversation. The reward signal 
 ## Quickstart
 
 ```bash
-cp .env.example .env       # add your ANTHROPIC_API_KEY
 npm install
+printf 'ANTHROPIC_API_KEY=your_key_here\n' > .env
 npm start                  # 5 random episodes
 npm start -- --episodes 10 # custom count
 npm run golden             # 6 fixed regression scenarios
+npm run stress             # 8 adversarial scenarios
+npm run experiment:init -- --label "baseline-pass"
 npm run experiment:loop -- --experiment <experiment-id> --iterations 3 --updater llm # policy experiment quickstart
 npm run viewer             # browser viewer for run artifacts
 ```
@@ -46,12 +48,14 @@ Tasks are also varied across **difficulty** (exact name vs. partial), **caller p
 | Wrong answer | −5 |
 | End call without answer | −3 |
 | Answering machine / wrong number | −2 |
-| Each multistep clue confirmed | +1 |
-| Multistep target field observed before submit | +1 |
-| Each `speak`, and each retry dial after the first | −1 |
+| Invalid action | −2 |
+| Good disambiguation question | +1 |
+| Premature target request | −1 |
+| Redundant disambiguation | −1 |
+| Each `speak`, and each retry dial after the first | starts at −1, escalates on long episodes |
 
 A perfect episode — one free dial, one question, correct answer — scores **+9**.
-A perfect single-clue `RESOLVE_THEN_RETRIEVE` episode scores **+11**.
+A clean multistep episode typically lands around **+8 to +10**, depending on whether the caller earns or burns shaping reward while resolving ambiguity.
 
 ---
 
@@ -75,6 +79,7 @@ Detailed analysis in [`docs/design-notes.md → Reward Landscape`](docs/design-n
 |------|-------------|
 | [`docs/evaluation.md`](docs/evaluation.md) | Run modes, task dimensions, reading the output, reward reference |
 | [`docs/design-notes.md`](docs/design-notes.md) | Architecture decisions, tradeoffs, and future evolution paths |
+| [`docs/eval-framework.md`](docs/eval-framework.md) | Prompt-optimization and experiment loop notes |
 | [`docs/architecture.mmd`](docs/architecture.mmd) | Mermaid diagram of the full system |
 | [`docs/problem-statement.md`](docs/problem-statement.md) | Original project brief |
 
@@ -94,7 +99,7 @@ For the agent itself, I used Claude as an LLM-in-the-loop rather than a learned 
 
 **The voice agent is a perfect oracle.** The CRM data feeds both the voice agent's responses and the reward evaluator — they share the same JSON. This collapses what would be two distinct knowledge systems in a real deployment: what the vendor's CRM says and what the customer actually believes. The simulation is clean but it means the caller is never tested against the core real-world challenge of reconciling conflicting information. Separating the two data stores is the highest-value environment improvement.
 
-**Inference-only training loop.** There are no weight updates. The loop collects reward signals and logs them, but nothing feeds back into the model. This was the right call for an initial implementation — it lets the environment be the focus — but it means "training" is currently just repeated evaluation. The interface is Gym-compatible by design so this is a well-defined next step rather than a rearchitect.
+**No weight-level RL yet.** There are still no gradient updates or model fine-tuning steps. What the repo does have now is prompt-level iteration: runs persist artifacts, and experiments can use those artifacts to propose and evaluate candidate prompt revisions. That keeps the environment as the focus while still allowing policy improvement without a full RL stack.
 
 **Scripted failure modes over a learned adversary.** Call routing outcomes (answering machine, wrong number) are drawn from fixed probabilities. The voice agent doesn't make mistakes or give evasive answers. This keeps the environment predictable while the core loop is being validated, but it limits what the caller's policy needs to learn. A voice agent that occasionally gives partial or incorrect answers would force the caller to develop verification strategies — currently it can score well without them.
 

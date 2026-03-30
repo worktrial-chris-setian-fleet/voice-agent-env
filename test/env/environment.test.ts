@@ -118,13 +118,15 @@ test('resolve-then-retrieve progress advances across resolution and follow-up tu
   assert.equal(resolutionStep.progressUpdate.resolvedCompanyNameThisTurn, 'Umbrella Technologies');
   assert.equal(resolutionStep.progress.targetFieldObserved, false);
   assert.equal(resolutionStep.reward, 0);
+  assert.deepEqual(resolutionStep.rewardEvents, ['TURN_PENALTY', 'GOOD_DISAMBIGUATION_QUESTION']);
 
   const retrievalStep = await env.step({ type: 'speak', utterance: 'Great, what is the contract value?' });
   assert.equal(retrievalStep.progress.phase, 'RETRIEVED');
   assert.equal(retrievalStep.progress.targetFieldObserved, true);
   assert.equal(retrievalStep.progressUpdate.targetFieldObservedThisTurn, true);
   assert.equal(retrievalStep.progress.resolvedCompanyName, 'Umbrella Technologies');
-  assert.equal(retrievalStep.reward, 0);
+  assert.equal(retrievalStep.reward, -1);
+  assert.deepEqual(retrievalStep.rewardEvents, ['TURN_PENALTY']);
 });
 
 test('caller-side evaluator marks a useful resolving question as good', async () => {
@@ -145,6 +147,8 @@ test('caller-side evaluator marks a useful resolving question as good', async ()
 
   assert.equal(result.callerBehaviorEvaluation?.label, 'GOOD_DISAMBIGUATION_QUESTION');
   assert.equal(result.callerBehaviorEvaluation?.reason, 'asked about a distinguishing field: account_status');
+  assert.equal(result.reward, 0);
+  assert.deepEqual(result.rewardEvents, ['TURN_PENALTY', 'GOOD_DISAMBIGUATION_QUESTION']);
   assert.equal(env.getCallerBehaviorMetrics().goodDisambiguationQuestions, 1);
   assert.equal(env.getCallerBehaviorMetrics().ambiguousTurns, 1);
 });
@@ -168,6 +172,8 @@ test('caller-side evaluator marks a premature target-field request during ambigu
   const result = await env.step({ type: 'speak', utterance: 'What is the last activity for Sarah?' });
 
   assert.equal(result.callerBehaviorEvaluation?.label, 'PREMATURE_TARGET_REQUEST');
+  assert.equal(result.reward, -2);
+  assert.deepEqual(result.rewardEvents, ['TURN_PENALTY', 'PREMATURE_TARGET_REQUEST']);
   assert.equal(env.getCallerBehaviorMetrics().prematureTargetRequests, 1);
   assert.equal(env.getCallerBehaviorMetrics().ambiguousTurns, 1);
 });
@@ -198,7 +204,94 @@ test('caller-side evaluator marks repeated clarification fields as redundant', a
 
   assert.equal(first.callerBehaviorEvaluation?.label, 'GOOD_DISAMBIGUATION_QUESTION');
   assert.equal(second.callerBehaviorEvaluation?.label, 'REDUNDANT_DISAMBIGUATION');
+  assert.equal(second.reward, -2);
+  assert.deepEqual(second.rewardEvents, ['TURN_PENALTY', 'REDUNDANT_DISAMBIGUATION']);
   assert.equal(env.getCallerBehaviorMetrics().goodDisambiguationQuestions, 1);
   assert.equal(env.getCallerBehaviorMetrics().redundantClarifications, 1);
   assert.equal(env.getCallerBehaviorMetrics().ambiguousTurns, 2);
+});
+
+test('voice-agent resolution events do not create intermediate reward without a good caller question', async () => {
+  const env = createEnv();
+  const spec = GOLDEN_TASKS.find((task) => task.brief.type === 'RESOLVE_THEN_RETRIEVE');
+  assert.ok(spec);
+
+  await env.reset(spec);
+  await env.step({ type: 'initiate_call', target: spec.callTarget ?? 'Technologies' });
+
+  installStubVoiceAgent(env, [{
+    text: 'I found Umbrella Technologies. What would you like to know?',
+    semanticEvents: [
+      {
+        type: 'resolution_clue_confirmed',
+        clue: spec.resolutionClues![0]!,
+        accountId: spec.targetAccountId,
+        companyName: 'Umbrella Technologies',
+      },
+      {
+        type: 'account_resolved',
+        accountId: spec.targetAccountId,
+        companyName: 'Umbrella Technologies',
+      },
+      {
+        type: 'follow_up_requested',
+        accountId: spec.targetAccountId,
+        companyName: 'Umbrella Technologies',
+      },
+    ],
+    toolEvents: [],
+  }]);
+
+  const result = await env.step({ type: 'speak', utterance: 'Can you help me with this account?' });
+
+  assert.equal(result.callerBehaviorEvaluation?.label, null);
+  assert.equal(result.reward, -1);
+  assert.deepEqual(result.rewardEvents, ['TURN_PENALTY']);
+});
+
+test('target-field follow-up is not penalized after a disambiguation task is resolved', async () => {
+  const env = createEnv();
+  const spec = GOLDEN_TASKS.find((task) =>
+    task.brief.type === 'DISAMBIGUATION' && task.brief.targetField === 'last_activity'
+  );
+  assert.ok(spec);
+
+  await env.reset(spec);
+  await env.step({ type: 'initiate_call', target: spec.ambiguousName ?? 'Sarah' });
+
+  installStubVoiceAgent(env, [
+    {
+      text: 'The right account is Soylent Corp under Sarah Waugh. What would you like to know?',
+      semanticEvents: [
+        {
+          type: 'account_resolved',
+          accountId: spec.targetAccountId,
+          companyName: 'Soylent Corp',
+        },
+      ],
+      toolEvents: [],
+    },
+    {
+      text: 'The last activity is 2026-01-14.',
+      semanticEvents: [
+        {
+          type: 'field_returned',
+          accountId: spec.targetAccountId,
+          companyName: 'Soylent Corp',
+          field: spec.brief.targetField,
+          value: spec.targetValue,
+        },
+      ],
+      toolEvents: [],
+    },
+  ]);
+
+  const resolutionStep = await env.step({ type: 'speak', utterance: 'Which company is the right Sarah account?' });
+  const retrievalStep = await env.step({ type: 'speak', utterance: 'What is the last activity for Soylent Corp?' });
+
+  assert.equal(resolutionStep.callerBehaviorEvaluation?.label, 'GOOD_DISAMBIGUATION_QUESTION');
+  assert.equal(retrievalStep.callerBehaviorEvaluation?.label, null);
+  assert.equal(retrievalStep.reward, -1);
+  assert.deepEqual(retrievalStep.rewardEvents, ['TURN_PENALTY']);
+  assert.equal(env.getCallerBehaviorMetrics().turnsToResolution, 1);
 });

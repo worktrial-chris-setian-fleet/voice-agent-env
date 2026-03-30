@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { findById } from '../crm/store.js';
 import type { QueryableField } from '../crm/types.js';
 import { makeClueKey, normalizeAnswer, normalizeFieldName } from '../env/answer-utils.js';
 import type {
@@ -191,6 +192,17 @@ This call is in RESOLVE_THEN_RETRIEVE mode.
     const semanticEvents: VoiceAgentSemanticEvent[] = [];
 
     for (const event of toolEvents) {
+      if (event.type === 'lookup_result' && event.accountIds.length === 1) {
+        const account = findById(event.accountIds[0]!);
+        if (account) {
+          semanticEvents.push({
+            type: 'account_resolved',
+            accountId: account.id,
+            companyName: account.company_name,
+          });
+        }
+      }
+
       if (event.type === 'lookup_failed') {
         semanticEvents.push({
           type: 'lookup_failed',
@@ -211,6 +223,17 @@ This call is in RESOLVE_THEN_RETRIEVE mode.
         field: event.field,
         value: event.value,
       });
+
+      if (
+        this.resolvedAccountId !== event.accountId &&
+        (this.sessionConfig.mode !== 'resolve_then_retrieve' || this.multistepPhase !== 'resolving')
+      ) {
+        semanticEvents.push({
+          type: 'account_resolved',
+          accountId: event.accountId,
+          companyName: event.companyName,
+        });
+      }
 
       if (this.sessionConfig.mode !== 'resolve_then_retrieve' || this.multistepPhase !== 'resolving') {
         continue;

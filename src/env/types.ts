@@ -103,8 +103,9 @@ export type RewardEvent =
   | 'ANSWERING_MACHINE'
   | 'WRONG_NUMBER'
   | 'INVALID_ACTION'
-  | 'RESOLUTION_CLUE_CONFIRMED'
-  | 'TARGET_FIELD_OBSERVED'
+  | 'GOOD_DISAMBIGUATION_QUESTION'
+  | 'PREMATURE_TARGET_REQUEST'
+  | 'REDUNDANT_DISAMBIGUATION'
   | 'TURN_PENALTY';
 
 /** Caller-attributed disambiguation labels used for instrumentation and future reward shaping. */
@@ -145,6 +146,8 @@ export interface CallerBehaviorMetrics {
   prematureTargetRequests: number;
   /** Count of repeated/low-value clarification attempts. */
   redundantClarifications: number;
+  /** Number of caller turns needed before the account identity became clear, if it did. */
+  turnsToResolution: number | null;
 }
 
 /** Snapshot of multistep progress at the end of a step or episode. */
