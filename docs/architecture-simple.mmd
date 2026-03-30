@@ -1,0 +1,17 @@
+flowchart LR
+    TASK["Task Generator<br/>simple lookup / disambiguation / resolve + retrieve"]
+    CALLER["Caller Agent<br/>RL policy subject"]
+    ENV["RL Environment<br/>episode loop, call outcomes, reward"]
+    VOICE["Voice Agent<br/>natural language helpline"]
+    MCP["MCP Server<br/>CRM tools"]
+    CRM["CRM Store<br/>accounts + fields"]
+    REWARD["Reward Signal<br/>correctness + efficiency"]
+
+    TASK --> ENV
+    CALLER -->|"initiate_call / speak / submit_answer / end_call"| ENV
+    ENV -->|"helpline conversation"| VOICE
+    VOICE --> MCP
+    MCP --> CRM
+    CRM -.->|"ground truth"| ENV
+    ENV --> REWARD
+    REWARD -.-> CALLER

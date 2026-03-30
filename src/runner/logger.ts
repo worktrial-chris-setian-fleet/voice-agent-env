@@ -143,7 +143,7 @@ export class Logger {
       if (result.callerBehaviorMetrics.turnsToResolution !== null) {
         console.log(
           chalk.bold.white('│') +
-          ` Resolved In:  ${result.callerBehaviorMetrics.turnsToResolution} turns`.padEnd(58) +
+          ` Resolved In:  ${result.callerBehaviorMetrics.turnsToResolution} ambiguity turns`.padEnd(58) +
           chalk.bold.white('│')
         );
       }

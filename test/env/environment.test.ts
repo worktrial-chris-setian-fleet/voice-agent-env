@@ -295,3 +295,53 @@ test('target-field follow-up is not penalized after a disambiguation task is res
   assert.deepEqual(retrievalStep.rewardEvents, ['TURN_PENALTY']);
   assert.equal(env.getCallerBehaviorMetrics().turnsToResolution, 1);
 });
+
+test('disambiguation stays unresolved when the voice agent only inspects candidate fields', async () => {
+  const env = createEnv();
+  const spec = GOLDEN_TASKS.find((task) =>
+    task.brief.type === 'DISAMBIGUATION' && task.brief.targetField === 'last_activity'
+  );
+  assert.ok(spec);
+
+  await env.reset(spec);
+  await env.step({ type: 'initiate_call', target: spec.ambiguousName ?? 'Sarah' });
+
+  installStubVoiceAgent(env, [
+    {
+      text: 'I checked the candidate Sarah accounts, but I still need you to confirm which company you mean.',
+      semanticEvents: [
+        {
+          type: 'field_returned',
+          accountId: spec.targetAccountId,
+          companyName: 'Soylent Corp',
+          field: 'deal_stage',
+          value: 'renewal',
+        },
+      ],
+      toolEvents: [],
+    },
+    {
+      text: 'The right Sarah is at Soylent Corp. What would you like to know?',
+      semanticEvents: [
+        {
+          type: 'account_resolved',
+          accountId: spec.targetAccountId,
+          companyName: 'Soylent Corp',
+        },
+      ],
+      toolEvents: [],
+    },
+  ]);
+
+  const inspectionStep = await env.step({ type: 'speak', utterance: 'Can you compare the Sarah accounts by deal stage?' });
+  assert.equal(inspectionStep.progress.resolvedCompanyName, null);
+  assert.equal(inspectionStep.progressUpdate.resolvedCompanyNameThisTurn, null);
+  assert.equal(env.getCallerBehaviorMetrics().ambiguousTurns, 1);
+  assert.equal(env.getCallerBehaviorMetrics().turnsToResolution, null);
+
+  const resolvedStep = await env.step({ type: 'speak', utterance: 'Which company is the right Sarah account?' });
+  assert.equal(resolvedStep.progress.resolvedCompanyName, 'Soylent Corp');
+  assert.equal(resolvedStep.progressUpdate.resolvedCompanyNameThisTurn, 'Soylent Corp');
+  assert.equal(env.getCallerBehaviorMetrics().ambiguousTurns, 2);
+  assert.equal(env.getCallerBehaviorMetrics().turnsToResolution, 2);
+});

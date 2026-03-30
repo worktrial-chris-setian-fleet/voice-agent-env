@@ -326,17 +326,6 @@ export class VoiceAgentEnv {
         progressUpdate.targetFieldObservedThisTurn = true;
       }
     }
-
-    if (this.resolvedCompanyName === null) {
-      const observedTargetAccount = voiceAgentEvents.find((event): event is Extract<VoiceAgentSemanticEvent, { type: 'field_returned' }> =>
-        event.type === 'field_returned' && event.accountId === spec.targetAccountId
-      );
-      if (observedTargetAccount) {
-        this.resolvedCompanyName = observedTargetAccount.companyName;
-        progressUpdate.resolvedCompanyNameThisTurn = observedTargetAccount.companyName;
-      }
-    }
-
     return progressUpdate;
   }
 

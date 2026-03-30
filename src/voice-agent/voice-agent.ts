@@ -224,17 +224,6 @@ This call is in RESOLVE_THEN_RETRIEVE mode.
         value: event.value,
       });
 
-      if (
-        this.resolvedAccountId !== event.accountId &&
-        (this.sessionConfig.mode !== 'resolve_then_retrieve' || this.multistepPhase !== 'resolving')
-      ) {
-        semanticEvents.push({
-          type: 'account_resolved',
-          accountId: event.accountId,
-          companyName: event.companyName,
-        });
-      }
-
       if (this.sessionConfig.mode !== 'resolve_then_retrieve' || this.multistepPhase !== 'resolving') {
         continue;
       }
